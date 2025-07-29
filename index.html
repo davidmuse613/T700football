@@ -1,0 +1,324 @@
+<!DOCTYPE html> <!-- Defines the document type as HTML5. This is the standard first line of any HTML page. -->
+<html lang="en"> <!-- The root element of an HTML page. 'lang="en"' specifies the language is English. -->
+<head> <!-- The head section contains meta-information about the HTML document, not visible on the page itself. -->
+    <meta charset="UTF-8"> <!-- Specifies the character encoding for the document, UTF-8 is standard and supports most characters. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Makes the website responsive, ensuring it looks good on all devices (desktops, tablets, phones). -->
+    <title>NFL Team Builder Scores</title> <!-- Sets the title of the webpage, which appears in the browser tab. -->
+    <script src="https://cdn.tailwindcss.com"></script> <!-- Includes the Tailwind CSS library, which allows for rapid styling directly in the HTML. -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Includes the Chart.js library, used to create the point differential charts. -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"> <!-- Imports the 'Inter' font from Google Fonts for a clean, modern look. -->
+    <style> /* This block contains custom CSS rules that work with Tailwind CSS. */
+        body { /* Styles applied to the entire body of the page. */
+            font-family: 'Inter', sans-serif; /* Sets the default font for the page to 'Inter'. */
+            background-color: #111827; /* Sets a dark blue-gray background color for the page. */
+            color: #e5e7eb; /* Sets a light gray color for the text, providing good contrast on the dark background. */
+        }
+        .table-container { /* A custom class for the div that will contain the scores table. */
+            max-width: 100%; /* Ensures the container doesn't exceed the width of its parent. */
+            overflow-x: auto; /* Adds a horizontal scrollbar if the table is wider than the screen, essential for mobile viewing. */
+        }
+        table { /* Styles for the main scores table. */
+            border-collapse: separate; /* Defines how table borders are drawn. 'separate' means each cell has its own border. */
+            border-spacing: 0; /* Removes the space between cell borders. */
+            min-width: 1200px; /* Sets a minimum width for the table to ensure the layout doesn't break on wider screens. */
+        }
+        th, td { /* Styles applied to both table header (th) and table data (td) cells. */
+            border: 1px solid #374151; /* Adds a 1-pixel solid gray border to each cell. */
+            padding: 12px; /* Adds padding inside each cell for spacing. */
+            text-align: center; /* Centers the text within each cell. */
+            white-space: nowrap; /* Prevents text from wrapping to the next line, keeping table rows neat. */
+        }
+        th { /* Specific styles for table header cells. */
+            background-color: #1f2937; /* Sets a slightly lighter dark background for the header. */
+            color: #d1d5db; /* Sets the text color for the header. */
+            font-weight: 600; /* Makes the header font semi-bold. */
+            position: sticky; /* Makes the table header stick to the top of the screen when scrolling down. */
+            top: 0; /* Specifies that the header should stick at the very top. */
+            z-index: 10; /* Ensures the sticky header appears above other content when scrolling. */
+        }
+        tr:nth-child(even) { /* Styles for every even-numbered table row (2nd, 4th, etc.). */
+            background-color: #1f2937; /* Gives even rows a slightly different background color for readability (striping). */
+        }
+        .win { /* Custom class for cells representing a win. */
+            background-color: rgba(16, 185, 129, 0.2); /* A semi-transparent green background. */
+            color: #a7f3d0; /* A light green text color. */
+        }
+        .loss { /* Custom class for cells representing a loss. */
+            background-color: rgba(239, 68, 68, 0.1); /* A semi-transparent red background. */
+            color: #f87171; /* A light red text color. */
+        }
+        .tie { /* Custom class for cells representing a tie. */
+            background-color: rgba(245, 158, 11, 0.1); /* A semi-transparent yellow background. */
+            color: #fbbf24; /* A light yellow text color. */
+        }
+        .bye { /* Custom class for cells representing a bye week. */
+            color: #6b7280; /* A muted gray color. */
+            font-style: italic; /* Italicizes the text. */
+        }
+        .subtotal-row { /* Custom class for the record subtotal rows. */
+            background-color: #1e3a8a; /* A distinct blue background color. */
+            color: #e0e7ff; /* A light blue text color. */
+            font-weight: 700; /* Makes the font bold. */
+        }
+        .chart-wrapper { /* Custom class for the container that holds a chart. */
+            background-color: #1f2937; /* A dark background color. */
+            border: 1px solid #374151; /* A gray border. */
+            padding: 1.5rem; /* Adds padding around the chart. */
+            border-radius: 0.5rem; /* Rounds the corners of the container. */
+            margin-top: 2rem; /* Adds space above the chart container. */
+        }
+        .chart-container { /* Custom class for the div that directly contains the chart canvas. */
+            position: relative; /* Required by Chart.js for responsive resizing. */
+            height: 350px; /* Sets a fixed height for the chart area. */
+            width: 100%; /* Makes the chart take up the full width of its wrapper. */
+        }
+    </style> <!-- End of the custom CSS block. -->
+</head> <!-- End of the head section. -->
+<body class="p-4 sm:p-6 md:p-8"> <!-- The body section contains the visible content of the page. The classes add padding. -->
+
+    <div class="max-w-7xl mx-auto"> <!-- A container to center the content and limit its maximum width on large screens. -->
+        <header class="text-center mb-8"> <!-- The header section of the page content. 'text-center' centers the text, 'mb-8' adds margin at the bottom. -->
+            <h1 class="text-3xl sm:text-4xl font-bold text-white">T700 Team Builder 2024</h1> <!-- The main title of the page. Classes control size, weight, and color. -->
+            <p class="text-lg text-gray-400 mt-2">Scores & Standings</p> <!-- A subtitle below the main title. -->
+        </header> <!-- End of the header section. -->
+
+        <div id="content-container"> <!-- A container for the main content (table and charts). -->
+            <div id="scores-table-container" class="table-container rounded-lg shadow-lg bg-[#151c2c] border border-gray-700"> <!-- The container for the scores table, with custom and Tailwind classes for styling. -->
+                <table class="w-full text-sm"> <!-- The HTML table element. 'w-full' makes it take the full width of its container, 'text-sm' makes the font small. -->
+                    <thead id="scores-table-head"></thead> <!-- The table header. It's empty because JavaScript will generate its content. -->
+                    <tbody id="scores-table-body"></tbody> <!-- The table body. It's also empty, to be filled by JavaScript. -->
+                </table> <!-- End of the table. -->
+            </div> <!-- End of the table container. -->
+            <div id="charts-container"></div> <!-- A container where the JavaScript will create the charts. -->
+        </div> <!-- End of the content container. -->
+
+    </div> <!-- End of the main page container. -->
+
+    <script> // This block contains all the JavaScript code that makes the page dynamic.
+        // --- CONFIGURATION ---
+        const WEEKS = 18; // Defines a constant for the total number of weeks in the season.
+        // *** IMPORTANT: UPDATE THIS NUMBER EACH WEEK ***
+        const CURRENT_WEEK = 2; // Sets the current week. This is the only line you need to edit each week to update the site's logic.
+
+        const owners = [ // An array of objects, where each object represents a team owner and their assigned NFL team.
+            { name: "Kyle", teamAbbr: "PIT" }, // Each object has a 'name' and 'teamAbbr' property.
+            { name: "Ethan, Bobby, Johnny", teamAbbr: "CAR" },
+            { name: "Russ", teamAbbr: "LVR" },
+            { name: "Danger", teamAbbr: "CIN" },
+            { name: "David", teamAbbr: "GNB" },
+            { name: "Nick", teamAbbr: "DET" },
+            { name: "Chuck", teamAbbr: "NWE" },
+            { name: "Patrick", teamAbbr: "NYG" },
+            { name: "Greg", teamAbbr: "ATL" },
+            { name: "Stefan", teamAbbr: "LAC" }
+        ]; // End of the owners array.
+
+        // --- TEAM COLOR CONFIGURATION ---
+        const teamLineColors = { // An object that maps team abbreviations to specific hex color codes for the chart lines.
+            'ATL': '#A5ACAF', 'CAR': '#0085CA', 'CIN': '#FB4F14', 'DET': '#0076B6',
+            'GNB': '#203731', 'LAC': '#FFC20E', 'LVR': '#A5ACAF', 'NWE': '#002244',
+            'NYG': '#A71930', 'PIT': '#101820'
+        }; // End of the line color map.
+
+        const teamMarkerColors = { // An object that maps team abbreviations to specific hex color codes for the chart data points (markers).
+            'ATL': '#A71930', 'CAR': '#101820', 'CIN': '#000000', 'DET': '#B0B7BC',
+            'GNB': '#FFB612', 'LAC': '#0080C6', 'LVR': '#000000', 'NWE': '#C60C30',
+            'NYG': '#0B2265', 'PIT': '#FFB612'
+        }; // End of the marker color map.
+
+        // --- STATIC DATA SOURCE ---
+        // To update, add new game objects. 'away_team' is the team with '@' in the CSV.
+        const staticGameData = [ // An array that holds all the game data for the season. This is where you'll add new results.
+            // Week 1
+            { week: 1, home_team: 'ATL', home_score: 10, away_team: 'PIT', away_score: 18 }, // Each object represents one game.
+            { week: 1, home_team: 'NOR', home_score: 27, away_team: 'CAR', away_score: 26 },
+            { week: 1, home_team: 'NWE', home_score: 13, away_team: 'CIN', away_score: 16 },
+            { week: 1, home_team: 'LVR', home_score: 10, away_team: 'LAC', away_score: 22 },
+            { week: 1, home_team: 'PHI', home_score: 26, away_team: 'GNB', away_score: 17 },
+            { week: 1, home_team: 'LAR', home_score: 20, away_team: 'DET', away_score: 26 },
+            { week: 1, home_team: 'MIN', home_score: 28, away_team: 'NYG', away_score: 13 },
+            // Week 2
+            { week: 2, home_team: 'DEN', home_score: 3,  away_team: 'PIT', away_score: 12 },
+            { week: 2, home_team: 'LAC', home_score: 26, away_team: 'CAR', away_score: 10 },
+            { week: 2, home_team: 'BAL', home_score: 27, away_team: 'LVR', away_score: 21 },
+            { week: 2, home_team: 'KAN', home_score: 34, away_team: 'CIN', away_score: 3  },
+            { week: 2, home_team: 'IND', home_score: 16, away_team: 'GNB', away_score: 20 },
+            { week: 2, home_team: 'TAM', home_score: 17, away_team: 'DET', away_score: 10 },
+            { week: 2, home_team: 'SEA', home_score: 23, away_team: 'NWE', away_score: 25 },
+            { week: 2, home_team: 'WAS', home_score: 18, away_team: 'NYG', away_score: 21 },
+            { week: 2, home_team: 'PHI', home_score: 34, away_team: 'ATL', away_score: 22 },
+            // --- ADD WEEK 3 GAMES HERE ---
+        ]; // End of the static game data array.
+
+        /**
+         * Processes the static game data into a Map grouped by week.
+         * A Map is used for efficient lookup of games by week number.
+         * @param {Array<object>} gameData - The array of raw game data objects.
+         * @returns {Map<number, Array<object>>} - A Map where keys are week numbers and values are arrays of games for that week.
+         */
+        function processStaticData(gameData) { // Defines the function.
+            const allGamesByWeek = new Map(); // Creates a new, empty Map to store the processed data.
+            for (let i = 1; i <= WEEKS; i++) { // Loops from week 1 to the total number of weeks.
+                allGamesByWeek.set(i, []); // Initializes an empty array for each week in the Map. This ensures every week exists, even with no games.
+            } // End of the for loop.
+            gameData.forEach(game => { // Iterates over each game object in the input `gameData` array.
+                const weekGames = allGamesByWeek.get(game.week); // Gets the array for the game's corresponding week from the Map.
+                if (weekGames) { // Checks if the week exists (it always will due to the initialization loop).
+                    weekGames.push(game); // Adds the current game object to the array for its week.
+                } // End of the if statement.
+            }); // End of the forEach loop.
+            return allGamesByWeek; // Returns the fully populated Map.
+        } // End of the processStaticData function.
+
+        /**
+         * Renders the entire scores table and the point differential charts into the HTML.
+         * This is the main function that builds the visible page content.
+         * @param {Map<number, Array<object>>} allGamesByWeek - The processed game data from the processStaticData function.
+         */
+        function renderTableAndCharts(allGamesByWeek) { // Defines the function.
+            const head = document.getElementById('scores-table-head'); // Gets the table header element from the HTML by its ID.
+            const body = document.getElementById('scores-table-body'); // Gets the table body element from the HTML by its ID.
+            const chartsContainer = document.getElementById('charts-container'); // Gets the container for charts from the HTML by its ID.
+            head.innerHTML = ''; // Clears any existing content from the table header.
+            body.innerHTML = ''; // Clears any existing content from the table body.
+            chartsContainer.innerHTML = ''; // Clears any existing charts.
+
+            const headerRow = document.createElement('tr'); // Creates a new table row (<tr>) element for the header.
+            headerRow.innerHTML = `<th>Wk</th>` + owners.map(o => `<th>${o.name}<br><span class="font-normal text-gray-400">${o.teamAbbr}</span></th>`).join(''); // Builds the HTML for the header row, including a column for each owner.
+            head.appendChild(headerRow); // Appends the newly created header row to the table header element in the HTML.
+
+            let sectionRecords = owners.map(() => ({w: 0, l: 0, t: 0})); // Initializes an array to track win/loss/tie records for the current 6-week section.
+            let sectionPointDiffs = owners.map(() => [0]); // Initializes an array to track cumulative point differentials for the current section. Starts with 0.
+            const subtotalWeeks = [6, 12, 18]; // Defines the weeks after which subtotals and charts should be generated.
+
+            for (let week = 1; week <= WEEKS; week++) { // Loops through every week of the season.
+                const weekRow = document.createElement('tr'); // Creates a new table row for the current week.
+                let rowContentHTML = `<td class="font-bold text-gray-300">${week}</td>`; // Starts building the HTML for the row, beginning with the week number cell.
+                const gamesThisWeek = allGamesByWeek.get(week) || []; // Gets the array of games for the current week from the Map.
+
+                owners.forEach((owner, ownerIndex) => { // Loops through each owner to create a cell for them in the current week's row.
+                    const game = gamesThisWeek.find(g => g.home_team === owner.teamAbbr || g.away_team === owner.teamAbbr); // Finds the game object that involves the current owner's team.
+                    
+                    if (game) { // If a game is found for this owner in this week...
+                        const isAway = game.away_team === owner.teamAbbr; // Checks if the owner's team is the away team.
+                        const myTeam = { abbr: owner.teamAbbr, score: isAway ? game.away_score : game.home_score }; // Creates an object for the owner's team with their score.
+                        const opponent = { abbr: isAway ? game.home_team : game.away_team, score: isAway ? game.home_score : game.away_score }; // Creates an object for the opponent team.
+                        const separator = isAway ? '@' : 'vs'; // Determines whether to show '@' (for away) or 'vs' (for home).
+                        
+                        const pointDiff = myTeam.score - opponent.score; // Calculates the point differential for the game.
+                        const lastCumulative = sectionPointDiffs[ownerIndex][sectionPointDiffs[ownerIndex].length - 1]; // Gets the previous cumulative point differential for this owner.
+                        sectionPointDiffs[ownerIndex].push(lastCumulative + pointDiff); // Adds the new cumulative differential to the array for the chart.
+
+                        let resultClass = 'tie'; // Sets the default cell style to 'tie'.
+                        if (pointDiff > 0) { // If the point differential is positive...
+                            resultClass = 'win'; // Change the style to 'win'.
+                            sectionRecords[ownerIndex].w++; // Increment the win count for the owner.
+                        } else if (pointDiff < 0) { // If the point differential is negative...
+                            resultClass = 'loss'; // Change the style to 'loss'.
+                            sectionRecords[ownerIndex].l++; // Increment the loss count for the owner.
+                        } else { // If the point differential is zero...
+                            sectionRecords[ownerIndex].t++; // Increment the tie count for the owner.
+                        } // End of win/loss/tie logic.
+
+                        rowContentHTML += `<td class="${resultClass}"><div class="font-semibold">${myTeam.abbr} ${myTeam.score}</div><div class="text-xs text-gray-400">${separator} ${opponent.abbr} ${opponent.score}</div></td>`; // Builds the HTML for the game cell and adds it to the row's HTML string.
+                    } else { // If no game is found for this owner this week...
+                        const lastCumulative = sectionPointDiffs[ownerIndex][sectionPointDiffs[ownerIndex].length - 1]; // Gets the previous cumulative point differential.
+                        sectionPointDiffs[ownerIndex].push(lastCumulative); // Carries over the same differential since they didn't play.
+                        if (week <= CURRENT_WEEK) { // If the week has already passed...
+                            rowContentHTML += `<td class="bye">BYE</td>`; // It was a BYE week, so display "BYE".
+                        } else { // If the week is in the future...
+                            rowContentHTML += `<td>—</td>`; // Display an em-dash (—) for a future, unplayed game.
+                        } // End of BYE/future game logic.
+                    } // End of game-finding logic.
+                }); // End of the loop for each owner.
+                
+                weekRow.innerHTML = rowContentHTML; // Sets the inner HTML of the week's table row to the string we built.
+                body.appendChild(weekRow); // Appends the completed row to the table body in the HTML.
+
+                if (subtotalWeeks.includes(week)) { // Checks if the current week is one of the weeks designated for a subtotal.
+                    const sectionIndex = subtotalWeeks.indexOf(week); // Gets the index of the current section (0, 1, or 2).
+                    const startWeek = sectionIndex * 6 + 1; // Calculates the starting week of this section.
+                    
+                    const subtotalRow = document.createElement('tr'); // Creates a new table row for the subtotal.
+                    subtotalRow.className = 'subtotal-row'; // Assigns the 'subtotal-row' class for styling.
+                    let subtotalHtml = `<td>Rec (Wk ${startWeek}-${week})</td>`; // Starts building the HTML for the subtotal row.
+                    sectionRecords.forEach(record => { // Loops through the records for each owner.
+                        subtotalHtml += `<td>${record.w}-${record.l}${record.t > 0 ? `-${record.t}` : ''}</td>`; // Creates the "W-L-T" string and adds it to the row's HTML.
+                    }); // End of the record loop.
+                    subtotalRow.innerHTML = subtotalHtml; // Sets the inner HTML of the subtotal row.
+                    body.appendChild(subtotalRow); // Appends the subtotal row to the table body.
+
+                    const chartLabels = Array.from({length: 6}, (_, i) => `Wk ${startWeek + i}`); // Creates the labels for the x-axis of the chart (e.g., "Wk 1", "Wk 2", ...).
+                    chartLabels.unshift(`Start`); // Adds "Start" to the beginning of the labels array.
+                    const chartDatasets = owners.map((owner, i) => ({ // Creates the dataset for each team to be plotted on the chart.
+                        label: owner.teamAbbr, // Sets the label for this line to the team's abbreviation.
+                        data: sectionPointDiffs[i], // Provides the array of cumulative point differentials for this team.
+                        borderColor: teamLineColors[owner.teamAbbr] || '#888888', // Sets the line color based on the team color map.
+                        pointBackgroundColor: teamMarkerColors[owner.teamAbbr] || '#888888', // Sets the marker color.
+                        pointBorderColor: teamMarkerColors[owner.teamAbbr] || '#888888', // Sets the marker border color.
+                        pointRadius: 4, // Sets the size of the data points on the line.
+                        tension: 0.1, // Makes the line slightly curved instead of sharp angles.
+                        fill: false // Prevents the area under the line from being filled with color.
+                    })); // End of the map function for datasets.
+                    
+                    const chartTitle = `Cumulative Point Differential: Weeks ${startWeek}-${week}`; // Creates the title for the chart.
+                    const canvasId = `chart-section-${sectionIndex}`; // Creates a unique ID for the chart's canvas element.
+                    chartsContainer.innerHTML += `<div class="chart-wrapper"><h3 class="text-xl font-bold text-center mb-4">${chartTitle}</h3><div class="chart-container"><canvas id="${canvasId}"></canvas></div></div>`; // Adds the complete HTML for the chart container and canvas to the page.
+                    renderChart(canvasId, chartLabels, chartDatasets); // Calls the function to actually draw the chart.
+                    
+                    sectionRecords = owners.map(() => ({w: 0, l: 0, t: 0})); // Resets the records for the next section.
+                    sectionPointDiffs = owners.map(() => [0]); // Resets the point differentials for the next section.
+                } // End of the subtotal/chart generation block.
+            } // End of the main loop for each week.
+        } // End of the renderTableAndCharts function.
+
+        /**
+         * Renders a line chart using Chart.js.
+         * @param {string} canvasId - The ID of the HTML canvas element where the chart should be drawn.
+         * @param {Array<string>} labels - The labels for the x-axis.
+         * @param {Array<object>} datasets - The datasets to plot on the chart.
+         */
+        function renderChart(canvasId, labels, datasets) { // Defines the function.
+            // Plugin to draw a white background on the chart canvas.
+            const whiteBackgroundPlugin = { // Defines a custom plugin for Chart.js.
+                id: 'customCanvasBackgroundColor', // Gives the plugin a unique ID.
+                beforeDraw: (chart) => { // This function runs before the chart is drawn.
+                    const { ctx } = chart; // Gets the drawing context of the canvas.
+                    ctx.save(); // Saves the current state of the canvas.
+                    ctx.globalCompositeOperation = 'destination-over'; // Sets the drawing mode to draw behind existing content.
+                    ctx.fillStyle = '#ffffff'; // Sets the fill color to white.
+                    ctx.fillRect(0, 0, chart.width, chart.height); // Fills the entire canvas with the white color.
+                    ctx.restore(); // Restores the canvas state to what it was before.
+                } // End of the beforeDraw function.
+            }; // End of the plugin definition.
+            
+            setTimeout(() => { // Uses setTimeout to ensure the canvas element exists in the HTML before trying to draw on it.
+                const ctx = document.getElementById(canvasId).getContext('2d'); // Gets the 2D drawing context of the specific canvas for this chart.
+                new Chart(ctx, { // Creates a new Chart.js instance.
+                    type: 'line', // Specifies the chart type as a line chart.
+                    data: { labels, datasets }, // Provides the labels and datasets for the chart.
+                    plugins: [whiteBackgroundPlugin], // Registers the custom white background plugin.
+                    options: { // An object containing configuration options for the chart.
+                        responsive: true, // Allows the chart to resize with its container.
+                        maintainAspectRatio: false, // Allows the chart's height and width to be controlled independently.
+                        scales: { // Configuration for the chart's axes.
+                            y: { ticks: { color: '#1f2937' }, grid: { color: '#d1d5db' } }, // Styles for the Y-axis (vertical), including tick and grid line colors.
+                            x: { ticks: { color: '#1f2937' }, grid: { display: false } } // Styles for the X-axis (horizontal). 'display: false' for the grid hides vertical grid lines.
+                        }, // End of scales configuration.
+                        plugins: { // Configuration for chart plugins.
+                            legend: { labels: { color: '#1f2937' } } // Styles for the chart legend, setting the text color.
+                        } // End of plugins configuration.
+                    } // End of options.
+                }); // End of the new Chart instance creation.
+            }, 0); // End of the setTimeout function.
+        } // End of the renderChart function.
+
+        // --- Main Execution ---
+        // This code runs after the entire HTML document has been loaded and parsed.
+        document.addEventListener('DOMContentLoaded', () => { // Adds an event listener that waits for the 'DOMContentLoaded' event.
+            const allGames = processStaticData(staticGameData); // Processes the raw game data into the structured Map format.
+            renderTableAndCharts(allGames); // Calls the main rendering function to build and display the table and charts.
+        }); // End of the event listener.
+    </script> <!-- End of the JavaScript block. -->
+</body> <!-- End of the body section. -->
+</html> <!-- End of the HTML document. -->
