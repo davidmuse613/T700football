@@ -104,6 +104,7 @@
         
         // --- DATA CONFIGURATION ---
         const TEAM_NAME_TO_ABBR_MAP = { 'Atlanta Falcons': 'ATL', 'Carolina Panthers': 'CAR', 'Cincinnati Bengals': 'CIN', 'Detroit Lions': 'DET', 'Green Bay Packers': 'GNB', 'Los Angeles Chargers': 'LAC', 'Las Vegas Raiders': 'LVR', 'New England Patriots': 'NWE', 'New York Giants': 'NYG', 'Pittsburgh Steelers': 'PIT', 'Tampa Bay Buccaneers': 'TAM', 'Seattle Seahawks': 'SEA', 'Dallas Cowboys': 'DAL', 'Washington Redskins': 'WAS', 'Washington Commanders': 'WAS', 'Oakland Raiders': 'LVR', 'San Diego Chargers': 'LAC', 'St. Louis Rams': 'LAR', 'Washington': 'WAS' };
+        const ABBR_TO_TEAM_NAME_MAP = Object.fromEntries(Object.entries(TEAM_NAME_TO_ABBR_MAP).map(([k, v]) => [v, k]));
         const seasonData = {
             '2025': { isLive: true, owners: [ { name: "Greg", teamAbbr: "ATL" }, { name: "Ethan, Johnny, Bobby", teamAbbr: "CAR" }, { name: "Danger", teamAbbr: "CIN" }, { name: "Nick", teamAbbr: "DET" }, { name: "David", teamAbbr: "GNB" }, { name: "Stefan", teamAbbr: "LAC" }, { name: "Russ", teamAbbr: "LVR" }, { name: "Chuck", teamAbbr: "NWE" }, { name: "Pat", teamAbbr: "NYG" }, { name: "Kyle", teamAbbr: "PIT" } ]}
         };
@@ -114,9 +115,12 @@
             const pageElement = document.getElementById(`page-${pageId}`);
             pageElement.style.display = 'block';
             document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
-            document.querySelector(`a[onclick="showPage('${pageId}')"]`).classList.add('active');
+            const activeLink = document.querySelector(`a[onclick="showPage('${pageId}')"]`);
+            if(activeLink) activeLink.classList.add('active');
+            
             const subheading = document.getElementById('page-subheading');
             subheading.textContent = (pageId === 'rules') ? 'League Rules & Information' : `${pageId} Scores & Standings`;
+
             if (pageId !== 'rules' && pageElement.innerHTML.trim() === '') {
                 await generateSeasonPage(pageId);
             }
@@ -182,6 +186,7 @@
                 return {
                     week: parseInt(event.intRound),
                     date: event.dateEvent,
+                    time: event.strTime,
                     home_team: homeTeamAbbr,
                     home_score: event.intHomeScore !== null ? parseInt(event.intHomeScore) : null,
                     away_team: awayTeamAbbr,
@@ -189,26 +194,37 @@
                 };
             });
         }
-
-        function processStaticData(gameData, WEEKS) {
-            const allGamesByWeek = new Map();
-            const weekDateMap = {};
-            for (let i = 1; i <= WEEKS; i++) allGamesByWeek.set(i, []);
-            gameData.forEach(game => {
-                const weekGames = allGamesByWeek.get(game.week);
-                if (weekGames) weekGames.push(game);
-                if (game.date && !weekDateMap[game.week]) {
-                    weekDateMap[game.week] = game.date;
+        
+        function findLatestDateForWeek(gamesThisWeek) {
+            if (!gamesThisWeek || gamesThisWeek.length === 0) return null;
+            let latestDateTime = null;
+            for (const game of gamesThisWeek) {
+                if (game.date && game.time) {
+                    const gameDateTime = new Date(`${game.date}T${game.time}Z`);
+                    if (!latestDateTime || gameDateTime > latestDateTime) {
+                        latestDateTime = gameDateTime;
+                    }
+                } else if (game.date) {
+                    const gameDate = new Date(game.date);
+                    if (!latestDateTime || gameDate > latestDateTime) {
+                        latestDateTime = gameDate;
+                    }
                 }
-            });
-            return { allGamesByWeek, weekDateMap };
+            }
+            return latestDateTime;
         }
 
         function renderTableAndCharts(year, overrideData = null) {
             const data = overrideData || seasonData[year];
             const { owners, games, abbrMap, currentWeek } = data;
             const WEEKS = 18; // Live season is always 18 weeks
-            const { allGamesByWeek, weekDateMap } = processStaticData(games, WEEKS);
+            
+            const allGamesByWeek = new Map();
+            for (let i = 1; i <= WEEKS; i++) allGamesByWeek.set(i, []);
+            games.forEach(game => {
+                const weekGames = allGamesByWeek.get(game.week);
+                if (weekGames) weekGames.push(game);
+            });
 
             const contentContainer = document.getElementById(`content-container-${year}`);
             contentContainer.innerHTML = `
@@ -224,7 +240,7 @@
             
             const headerRow = document.createElement('tr');
             headerRow.innerHTML = `<th>Wk</th>` + owners.map(o => {
-                const teamFullName = abbrMap[o.teamAbbr] || o.teamAbbr;
+                const teamFullName = abbrMap[o.teamAbbr] || ABBR_TO_TEAM_NAME_MAP[o.teamAbbr] || o.teamAbbr;
                 return `<th>${o.name}<br><span class="font-normal text-gray-400 text-xs">${teamFullName}</span></th>`;
             }).join('');
             head.appendChild(headerRow);
@@ -233,41 +249,49 @@
             let sectionPointDiffs = owners.map(() => [0]);
             const subtotalWeeks = [6, 12, 18];
             const today = new Date();
-            today.setHours(0,0,0,0);
             
             for (let week = 1; week <= WEEKS; week++) {
                 const weekRow = document.createElement('tr');
                 let rowContentHTML = `<td class="font-bold text-gray-300">${week}</td>`;
                 const gamesThisWeek = allGamesByWeek.get(week) || [];
+                
                 owners.forEach((owner, ownerIndex) => {
                     const game = gamesThisWeek.find(g => g.home_team === owner.teamAbbr || g.away_team === owner.teamAbbr);
-                    if (game && game.home_score !== null && game.away_score !== null && !isNaN(game.home_score) && !isNaN(game.away_score)) {
+                    let pointDiffThisWeek = 0;
+
+                    if (game) {
                         const isAway = game.away_team === owner.teamAbbr;
-                        const myTeam = { abbr: owner.teamAbbr, score: isAway ? game.away_score : game.home_score };
                         const opponentAbbr = isAway ? game.home_team : game.away_team;
-                        const opponent = { abbr: opponentAbbr, score: isAway ? game.home_score : game.away_score };
-                        const pointDiff = myTeam.score - opponent.score;
-                        sectionRecords[ownerIndex].diff += pointDiff;
-                        const lastCumulative = sectionPointDiffs[ownerIndex][sectionPointDiffs[ownerIndex].length - 1];
-                        sectionPointDiffs[ownerIndex].push(lastCumulative + pointDiff);
-                        let resultClass = 'tie';
-                        if (pointDiff > 0) { resultClass = 'win'; sectionRecords[ownerIndex].w++; }
-                        else if (pointDiff < 0) { resultClass = 'loss'; sectionRecords[ownerIndex].l++; }
-                        else { sectionRecords[ownerIndex].t++; }
-                        rowContentHTML += `<td class="${resultClass}"><div class="font-semibold">${myTeam.score} - ${opponent.score}</div><div class="text-xs text-gray-400">${isAway ? '@' : 'vs'} ${opponent.abbr}</div></td>`;
-                    } else {
-                        const lastCumulative = sectionPointDiffs[ownerIndex][sectionPointDiffs[ownerIndex].length - 1];
-                        sectionPointDiffs[ownerIndex].push(lastCumulative);
-                        if (game) {
-                             const isAway = game.away_team === owner.teamAbbr;
-                             const opponentAbbr = isAway ? game.home_team : game.away_team;
-                             rowContentHTML += `<td>${isAway ? '@' : 'vs'} ${opponentAbbr}</td>`;
+                        const opponentFullName = abbrMap[opponentAbbr] || ABBR_TO_TEAM_NAME_MAP[opponentAbbr] || opponentAbbr;
+
+                        if (game.home_score !== null && game.away_score !== null && !isNaN(game.home_score) && !isNaN(game.away_score)) {
+                            const myTeamScore = isAway ? game.away_score : game.home_score;
+                            const opponentScore = isAway ? game.home_score : game.away_score;
+                            pointDiffThisWeek = myTeamScore - opponentScore;
+                            sectionRecords[ownerIndex].diff += pointDiffThisWeek;
+                            
+                            let resultClass = 'tie';
+                            if (pointDiffThisWeek > 0) { resultClass = 'win'; sectionRecords[ownerIndex].w++; }
+                            else if (pointDiffThisWeek < 0) { resultClass = 'loss'; sectionRecords[ownerIndex].l++; }
+                            else { sectionRecords[ownerIndex].t++; }
+                            rowContentHTML += `<td class="${resultClass}"><div class="font-semibold">${myTeamScore} - ${opponentScore}</div><div class="text-xs text-gray-400">${isAway ? '@' : 'vs'} ${opponentFullName}</div></td>`;
                         } else {
-                             const weekDate = weekDateMap[week] ? new Date(weekDateMap[week]) : null;
-                             const isPastWeek = data.isLive ? (weekDate && weekDate < today) : (week <= currentWeek);
-                             rowContentHTML += isPastWeek ? `<td class="bye">BYE</td>` : `<td>—</td>`;
+                            rowContentHTML += `<td>${isAway ? '@' : 'vs'} ${opponentFullName}</td>`;
                         }
+                    } else {
+                        let isPastWeek;
+                        if (data.isLive) {
+                            const anyGameThisWeek = allGamesByWeek.get(week) || [];
+                            const lastGameDateOfWeek = findLatestDateForWeek(anyGameThisWeek);
+                            if (lastGameDateOfWeek) { lastGameDateOfWeek.setDate(lastGameDateOfWeek.getDate() + 1); }
+                            isPastWeek = lastGameDateOfWeek && lastGameDateOfWeek < today;
+                        } else {
+                            isPastWeek = (week <= currentWeek);
+                        }
+                        rowContentHTML += isPastWeek ? `<td class="bye">BYE</td>` : `<td>—</td>`;
                     }
+                    const lastCumulative = sectionPointDiffs[ownerIndex][sectionPointDiffs[ownerIndex].length - 1];
+                    sectionPointDiffs[ownerIndex].push(lastCumulative + pointDiffThisWeek);
                 });
                 weekRow.innerHTML = rowContentHTML;
                 body.appendChild(weekRow);
@@ -276,63 +300,56 @@
                     const sectionIndex = subtotalWeeks.indexOf(week);
                     const startWeek = (sectionIndex === 0) ? 1 : subtotalWeeks[sectionIndex - 1] + 1;
                     
-                    const isSectionComplete = data.isLive ? (weekDateMap[week] && new Date(weekDateMap[week]) < today) : (currentWeek >= week);
-
-                    if (isSectionComplete) {
-                        let winnerIndex = -1;
-                        if (games.some(g => g.week >= startWeek && g.week <= week)) {
-                            let maxWins = -1;
-                            sectionRecords.forEach(r => { if (r.w > maxWins) maxWins = r.w; });
-                            
-                            const potentialWinners = sectionRecords
-                                .map((r, i) => ({...r, index: i}))
-                                .filter(r => r.w === maxWins && r.w > r.l);
-                            
-                            if (potentialWinners.length === 1) {
-                                winnerIndex = potentialWinners[0].index;
-                            } else if (potentialWinners.length > 1) {
-                                let maxDiff = -Infinity;
-                                let winner = null;
-                                potentialWinners.forEach(p => { 
-                                    if (p.diff > maxDiff) { 
-                                        maxDiff = p.diff; 
-                                        winner = p;
-                                    }
-                                });
-                                if(winner) winnerIndex = winner.index;
-                            }
+                    let winnerIndex = -1;
+                    if (games.some(g => g.week >= startWeek && g.week <= week)) {
+                        let maxWins = -1;
+                        sectionRecords.forEach(r => { if (r.w > maxWins) maxWins = r.w; });
+                        const potentialWinners = sectionRecords.map((r, i) => ({...r, index: i})).filter(r => r.w === maxWins && r.w > r.l);
+                        
+                        if (potentialWinners.length === 1) {
+                            winnerIndex = potentialWinners[0].index;
+                        } else if (potentialWinners.length > 1) {
+                            let maxDiff = -Infinity;
+                            let winner = null;
+                            potentialWinners.forEach(p => { 
+                                if (p.diff > maxDiff) { 
+                                    maxDiff = p.diff; 
+                                    winner = p;
+                                }
+                            });
+                            if(winner) winnerIndex = winner.index;
                         }
-
-                        const subtotalRow = document.createElement('tr');
-                        subtotalRow.className = 'subtotal-row'; 
-                        let subtotalHtml = `<td>Rec (Wk ${startWeek}-${week})</td>`;
-                        sectionRecords.forEach((record, i) => {
-                            const highlightClass = (i === winnerIndex) ? 'section-winner' : '';
-                            subtotalHtml += `<td class="${highlightClass}">${record.w}-${record.l}${record.t > 0 ? `-${record.t}` : ''}</td>`;
-                        });
-                        subtotalRow.innerHTML = subtotalHtml;
-                        body.appendChild(subtotalRow);
-
-                        const chartLabels = Array.from({length: (week - startWeek + 1)}, (_, i) => `Wk ${startWeek + i}`);
-                        chartLabels.unshift(`Start`);
-                        const chartDatasets = owners.map((owner, i) => ({
-                            label: owner.teamAbbr, data: sectionPointDiffs[i],
-                            borderColor: teamLineColors[owner.teamAbbr] || '#888',
-                            pointBackgroundColor: teamMarkerColors[owner.teamAbbr] || '#888',
-                            pointBorderColor: teamMarkerColors[owner.teamAbbr] || '#888',
-                            pointRadius: 4, tension: 0.1, fill: false
-                        }));
-                        const chartTitle = `Cumulative Point Differential: Weeks ${startWeek}-${week}`;
-                        const canvasId = `chart-${year}-section-${sectionIndex}`;
-                        const legendId = `legend-${year}-section-${sectionIndex}`;
-                        chartsContainer.innerHTML += `
-                            <div class="chart-wrapper">
-                                <h3 class="text-xl font-bold text-center mb-4">${chartTitle}</h3>
-                                <div class="chart-container"><canvas id="${canvasId}"></canvas></div>
-                                <div id="${legendId}" class="custom-legend"></div>
-                            </div>`;
-                        renderChart(canvasId, legendId, chartLabels, chartDatasets);
                     }
+
+                    const subtotalRow = document.createElement('tr');
+                    subtotalRow.className = 'subtotal-row';
+                    let subtotalHtml = `<td>Rec (Wk ${startWeek}-${week})</td>`;
+                    sectionRecords.forEach((record, i) => {
+                        const highlightClass = (i === winnerIndex) ? 'section-winner' : '';
+                        subtotalHtml += `<td class="${highlightClass}">${record.w}-${record.l}${record.t > 0 ? `-${record.t}` : ''}</td>`;
+                    });
+                    subtotalRow.innerHTML = subtotalHtml;
+                    body.appendChild(subtotalRow);
+
+                    const chartLabels = Array.from({length: (week - startWeek + 1)}, (_, i) => `Wk ${startWeek + i}`);
+                    chartLabels.unshift(`Start`);
+                    const chartDatasets = owners.map((owner, i) => ({
+                        label: owner.teamAbbr, data: sectionPointDiffs[i],
+                        borderColor: teamLineColors[owner.teamAbbr] || '#888',
+                        pointBackgroundColor: teamMarkerColors[owner.teamAbbr] || '#888',
+                        pointBorderColor: teamMarkerColors[owner.teamAbbr] || '#888',
+                        pointRadius: 4, tension: 0.1, fill: false
+                    }));
+                    const chartTitle = `Cumulative Point Differential: Weeks ${startWeek}-${week}`;
+                    const canvasId = `chart-${year}-section-${sectionIndex}`;
+                    const legendId = `legend-${year}-section-${sectionIndex}`;
+                    chartsContainer.innerHTML += `
+                        <div class="chart-wrapper">
+                            <h3 class="text-xl font-bold text-center mb-4">${chartTitle}</h3>
+                            <div class="chart-container"><canvas id="${canvasId}"></canvas></div>
+                            <div id="${legendId}" class="custom-legend"></div>
+                        </div>`;
+                    renderChart(canvasId, legendId, chartLabels, chartDatasets);
                     
                     sectionRecords = owners.map(() => ({w: 0, l: 0, t: 0, diff: 0}));
                     sectionPointDiffs = owners.map(() => [0]);
@@ -389,3 +406,4 @@
     </script>
 </body>
 </html>
+
