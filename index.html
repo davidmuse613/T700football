@@ -60,6 +60,7 @@
             <p id="page-subheading" class="text-lg text-gray-400 mt-2">Scores & Standings</p>
         </header>
 
+        <!-- Page Content Containers -->
         <div id="page-2025" class="page-content"></div>
         <div id="page-rules" class="page-content bg-gray-800 p-8 rounded-lg">
             <div class="rules-content text-gray-300">
@@ -104,6 +105,21 @@
         // --- DATA CONFIGURATION ---
         const TEAM_NAME_TO_ABBR_MAP = { 'Atlanta Falcons': 'ATL', 'Carolina Panthers': 'CAR', 'Cincinnati Bengals': 'CIN', 'Detroit Lions': 'DET', 'Green Bay Packers': 'GNB', 'Los Angeles Chargers': 'LAC', 'Las Vegas Raiders': 'LVR', 'New England Patriots': 'NWE', 'New York Giants': 'NYG', 'Pittsburgh Steelers': 'PIT', 'Tampa Bay Buccaneers': 'TAM', 'Seattle Seahawks': 'SEA', 'Dallas Cowboys': 'DAL', 'Washington Redskins': 'WAS', 'Washington Commanders': 'WAS', 'Oakland Raiders': 'LVR', 'San Diego Chargers': 'LAC', 'St. Louis Rams': 'LAR', 'Washington': 'WAS' };
         const ABBR_TO_TEAM_NAME_MAP = Object.fromEntries(Object.entries(TEAM_NAME_TO_ABBR_MAP).map(([k, v]) => [v, k]));
+        const LOGO_MAP = {
+            'ATL': 'https://r2.thesportsdb.com/images/media/team/badge/rrpvpr1420658174.png/tiny',
+            'CAR': 'https://r2.thesportsdb.com/images/media/team/badge/xxyvvy1420940478.png/tiny',
+            'CIN': 'https://r2.thesportsdb.com/images/media/team/badge/qqtwwv1420941670.png/tiny',
+            'DET': 'https://r2.thesportsdb.com/images/media/team/badge/lgsgkr1546168257.png/tiny',
+            'GNB': 'https://r2.thesportsdb.com/images/media/team/badge/rqpwtr1421434717.png/tiny',
+            'LAC': 'https://r2.thesportsdb.com/images/media/team/badge/vrqanp1687734910.png/tiny',
+            'LVR': 'https://r2.thesportsdb.com/images/media/team/badge/xqusqy1421724291.png/tiny',
+            'NWE': 'https://r2.thesportsdb.com/images/media/team/badge/xtwxyt1421431860.png/tiny',
+            'NYG': 'https://r2.thesportsdb.com/images/media/team/badge/vxppup1423669459.png/tiny',
+            'PIT': 'https://r2.thesportsdb.com/images/media/team/badge/2975411515853129.png/tiny',
+            'TAM': 'https://r2.thesportsdb.com/images/media/team/badge/2dfpdl1537820969.png/tiny',
+            'SEA': 'https://r2.thesportsdb.com/images/media/team/badge/wwuqyr1421434817.png/tiny',
+            'DAL': 'https://r2.thesportsdb.com/images/media/team/badge/wrxssu1450018209.png/tiny',
+        };
         const seasonData = {
             '2025': { isLive: true, owners: [ { name: "Greg", teamAbbr: "ATL" }, { name: "Ethan, Johnny, Bobby", teamAbbr: "CAR" }, { name: "Danger", teamAbbr: "CIN" }, { name: "Nick", teamAbbr: "DET" }, { name: "David, Bob", teamAbbr: "GNB" }, { name: "Stefan", teamAbbr: "LAC" }, { name: "Russ", teamAbbr: "LVR" }, { name: "Chuck", teamAbbr: "NWE" }, { name: "Pat", teamAbbr: "NYG" }, { name: "Kyle", teamAbbr: "PIT" } ]}
         };
@@ -141,24 +157,6 @@
             const WEEKS = 18;
             const contentContainer = document.getElementById(`content-container-${year}`);
             
-            // Fetch all team logos first
-            const logoMap = {};
-            try {
-                const teamsResponse = await fetch(`https://www.thesportsdb.com/api/v1/json/${API_KEY}/search_all_teams.php?l=NFL`);
-                const teamsData = await teamsResponse.json();
-                if (teamsData.teams) {
-                    teamsData.teams.forEach(team => {
-                        const abbr = TEAM_NAME_TO_ABBR_MAP[team.strTeam];
-                        if (abbr) {
-                            logoMap[abbr] = team.strTeamBadge;
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error("Could not fetch team logos", error);
-            }
-
-            // Fetch all weekly events in parallel
             const promises = [];
             for (let week = 1; week <= WEEKS; week++) {
                 const url = `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsround.php?id=${NFL_LEAGUE_ID}&r=${week}&s=${year}`;
@@ -187,7 +185,7 @@
                     ...seasonData[year],
                     games: processedGames,
                     abbrMap: abbrToFullNameMap,
-                    logoMap: logoMap, // Pass the logo map to the renderer
+                    logoMap: LOGO_MAP, 
                 };
                 renderTableAndCharts(year, liveData);
             } else {
@@ -239,7 +237,7 @@
             headerRow.innerHTML = `<th>Wk</th>` + owners.map(o => {
                 const teamFullName = abbrMap[o.teamAbbr] || ABBR_TO_TEAM_NAME_MAP[o.teamAbbr] || o.teamAbbr;
                 const logoUrl = logoMap ? logoMap[o.teamAbbr] : '';
-                const logoHtml = logoUrl ? `<img src="${logoUrl}/tiny" alt="${o.teamAbbr}" class="mx-auto h-8 w-8 mb-1">` : '';
+                const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${o.teamAbbr}" class="mx-auto h-8 w-8 mb-1">` : '';
                 return `<th>${logoHtml}${o.name}<br><span class="font-normal text-gray-400 text-xs">${teamFullName}</span></th>`;
             }).join('');
             head.appendChild(headerRow);
@@ -247,7 +245,6 @@
             let sectionRecords = owners.map(() => ({w: 0, l: 0, t: 0, diff: 0}));
             let sectionPointDiffs = owners.map(() => [0]);
             const subtotalWeeks = [6, 12, 18];
-            const today = new Date();
             
             for (let week = 1; week <= WEEKS; week++) {
                 const weekRow = document.createElement('tr');
