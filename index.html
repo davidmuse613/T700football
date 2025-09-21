@@ -60,7 +60,6 @@
             <p id="page-subheading" class="text-lg text-gray-400 mt-2">Scores & Standings</p>
         </header>
 
-        <!-- Page Content Containers -->
         <div id="page-2025" class="page-content"></div>
         <div id="page-rules" class="page-content bg-gray-800 p-8 rounded-lg">
             <div class="rules-content text-gray-300">
@@ -142,6 +141,24 @@
             const WEEKS = 18;
             const contentContainer = document.getElementById(`content-container-${year}`);
             
+            // Fetch all team logos first
+            const logoMap = {};
+            try {
+                const teamsResponse = await fetch(`https://www.thesportsdb.com/api/v1/json/${API_KEY}/search_all_teams.php?l=NFL`);
+                const teamsData = await teamsResponse.json();
+                if (teamsData.teams) {
+                    teamsData.teams.forEach(team => {
+                        const abbr = TEAM_NAME_TO_ABBR_MAP[team.strTeam];
+                        if (abbr) {
+                            logoMap[abbr] = team.strTeamBadge;
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error("Could not fetch team logos", error);
+            }
+
+            // Fetch all weekly events in parallel
             const promises = [];
             for (let week = 1; week <= WEEKS; week++) {
                 const url = `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsround.php?id=${NFL_LEAGUE_ID}&r=${week}&s=${year}`;
@@ -170,6 +187,7 @@
                     ...seasonData[year],
                     games: processedGames,
                     abbrMap: abbrToFullNameMap,
+                    logoMap: logoMap, // Pass the logo map to the renderer
                 };
                 renderTableAndCharts(year, liveData);
             } else {
@@ -193,29 +211,10 @@
             });
         }
         
-        function findLatestDateForWeek(gamesThisWeek) {
-            if (!gamesThisWeek || gamesThisWeek.length === 0) return null;
-            let latestDateTime = null;
-            for (const game of gamesThisWeek) {
-                if (game.date && game.time) {
-                    const gameDateTime = new Date(`${game.date}T${game.time}Z`);
-                    if (!latestDateTime || gameDateTime > latestDateTime) {
-                        latestDateTime = gameDateTime;
-                    }
-                } else if (game.date) {
-                    const gameDate = new Date(game.date);
-                    if (!latestDateTime || gameDate > latestDateTime) {
-                        latestDateTime = gameDate;
-                    }
-                }
-            }
-            return latestDateTime;
-        }
-
         function renderTableAndCharts(year, overrideData = null) {
             const data = overrideData || seasonData[year];
-            const { owners, games, abbrMap, currentWeek } = data;
-            const WEEKS = 18; // Live season is always 18 weeks
+            const { owners, games, abbrMap, logoMap, currentWeek } = data;
+            const WEEKS = 18;
             
             const allGamesByWeek = new Map();
             for (let i = 1; i <= WEEKS; i++) allGamesByWeek.set(i, []);
@@ -239,7 +238,9 @@
             const headerRow = document.createElement('tr');
             headerRow.innerHTML = `<th>Wk</th>` + owners.map(o => {
                 const teamFullName = abbrMap[o.teamAbbr] || ABBR_TO_TEAM_NAME_MAP[o.teamAbbr] || o.teamAbbr;
-                return `<th>${o.name}<br><span class="font-normal text-gray-400 text-xs">${teamFullName}</span></th>`;
+                const logoUrl = logoMap ? logoMap[o.teamAbbr] : '';
+                const logoHtml = logoUrl ? `<img src="${logoUrl}/tiny" alt="${o.teamAbbr}" class="mx-auto h-8 w-8 mb-1">` : '';
+                return `<th>${logoHtml}${o.name}<br><span class="font-normal text-gray-400 text-xs">${teamFullName}</span></th>`;
             }).join('');
             head.appendChild(headerRow);
             
@@ -277,16 +278,7 @@
                             rowContentHTML += `<td>${isAway ? '@' : 'vs'} ${opponentFullName}</td>`;
                         }
                     } else {
-                        let isPastWeek = false;
-                        if (data.isLive) {
-                             const anyGamePlayedInWeek = games.some(g => g.week === week && g.home_score !== null);
-                             if (anyGamePlayedInWeek) {
-                                isPastWeek = true;
-                             }
-                        } else {
-                            isPastWeek = (week <= currentWeek);
-                        }
-                        rowContentHTML += isPastWeek ? `<td class="bye">BYE</td>` : `<td>—</td>`;
+                        rowContentHTML += `<td>—</td>`;
                     }
                     const lastCumulative = sectionPointDiffs[ownerIndex][sectionPointDiffs[ownerIndex].length - 1];
                     sectionPointDiffs[ownerIndex].push(lastCumulative + pointDiffThisWeek);
