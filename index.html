@@ -106,7 +106,7 @@
         const TEAM_NAME_TO_ABBR_MAP = { 'Atlanta Falcons': 'ATL', 'Carolina Panthers': 'CAR', 'Cincinnati Bengals': 'CIN', 'Detroit Lions': 'DET', 'Green Bay Packers': 'GNB', 'Los Angeles Chargers': 'LAC', 'Las Vegas Raiders': 'LVR', 'New England Patriots': 'NWE', 'New York Giants': 'NYG', 'Pittsburgh Steelers': 'PIT', 'Tampa Bay Buccaneers': 'TAM', 'Seattle Seahawks': 'SEA', 'Dallas Cowboys': 'DAL', 'Washington Redskins': 'WAS', 'Washington Commanders': 'WAS', 'Oakland Raiders': 'LVR', 'San Diego Chargers': 'LAC', 'St. Louis Rams': 'LAR', 'Washington': 'WAS' };
         const ABBR_TO_TEAM_NAME_MAP = Object.fromEntries(Object.entries(TEAM_NAME_TO_ABBR_MAP).map(([k, v]) => [v, k]));
         const seasonData = {
-            '2025': { isLive: true, owners: [ { name: "Greg", teamAbbr: "ATL" }, { name: "Ethan, Johnny, Bobby", teamAbbr: "CAR" }, { name: "Danger", teamAbbr: "CIN" }, { name: "Nick", teamAbbr: "DET" }, { name: "David", teamAbbr: "GNB" }, { name: "Stefan", teamAbbr: "LAC" }, { name: "Russ", teamAbbr: "LVR" }, { name: "Chuck", teamAbbr: "NWE" }, { name: "Pat", teamAbbr: "NYG" }, { name: "Kyle", teamAbbr: "PIT" } ]}
+            '2025': { isLive: true, owners: [ { name: "Greg", teamAbbr: "ATL" }, { name: "Ethan, Johnny, Bobby", teamAbbr: "CAR" }, { name: "Danger", teamAbbr: "CIN" }, { name: "Nick", teamAbbr: "DET" }, { name: "David, Bob", teamAbbr: "GNB" }, { name: "Stefan", teamAbbr: "LAC" }, { name: "Russ", teamAbbr: "LVR" }, { name: "Chuck", teamAbbr: "NWE" }, { name: "Pat", teamAbbr: "NYG" }, { name: "Kyle", teamAbbr: "PIT" } ]}
         };
 
         // --- PAGE ROUTING LOGIC ---
@@ -140,23 +140,21 @@
             const API_KEY = '123';
             const NFL_LEAGUE_ID = '4391';
             const WEEKS = 18;
-            let allEvents = [];
             const contentContainer = document.getElementById(`content-container-${year}`);
-
+            
+            const promises = [];
             for (let week = 1; week <= WEEKS; week++) {
-                try {
-                    const url = `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsround.php?id=${NFL_LEAGUE_ID}&r=${week}&s=${year}`;
-                    const response = await fetch(url);
-                    const apiData = await response.json();
-                    if (apiData.events) {
-                        allEvents = allEvents.concat(apiData.events);
-                    }
-                    contentContainer.innerHTML = `<div class="text-center text-gray-400 p-8">Loading ${year} season data... Fetched week ${week}/${WEEKS}</div>`;
-                    await new Promise(res => setTimeout(res, 1500)); 
-                } catch (error) {
-                    console.error(`Error fetching data for week ${week}:`, error);
-                }
+                const url = `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsround.php?id=${NFL_LEAGUE_ID}&r=${week}&s=${year}`;
+                promises.push(fetch(url).then(res => res.json()));
             }
+
+            const allResults = await Promise.all(promises);
+            let allEvents = [];
+            allResults.forEach(result => {
+                if (result.events) {
+                    allEvents = allEvents.concat(result.events);
+                }
+            });
 
             if (allEvents.length > 0) {
                 const abbrToFullNameMap = {};
@@ -279,12 +277,12 @@
                             rowContentHTML += `<td>${isAway ? '@' : 'vs'} ${opponentFullName}</td>`;
                         }
                     } else {
-                        let isPastWeek;
+                        let isPastWeek = false;
                         if (data.isLive) {
-                            const anyGameThisWeek = allGamesByWeek.get(week) || [];
-                            const lastGameDateOfWeek = findLatestDateForWeek(anyGameThisWeek);
-                            if (lastGameDateOfWeek) { lastGameDateOfWeek.setDate(lastGameDateOfWeek.getDate() + 1); }
-                            isPastWeek = lastGameDateOfWeek && lastGameDateOfWeek < today;
+                             const anyGamePlayedInWeek = games.some(g => g.week === week && g.home_score !== null);
+                             if (anyGamePlayedInWeek) {
+                                isPastWeek = true;
+                             }
                         } else {
                             isPastWeek = (week <= currentWeek);
                         }
@@ -371,6 +369,7 @@
             };
             setTimeout(() => {
                 const legendContainer = document.getElementById(legendId);
+                if (!legendContainer) return;
                 legendContainer.innerHTML = '';
                 datasets.forEach(dataset => {
                     const legendItem = document.createElement('div');
@@ -385,8 +384,9 @@
                     legendContainer.appendChild(legendItem);
                 });
 
-                const ctx = document.getElementById(canvasId).getContext('2d');
-                new Chart(ctx, {
+                const ctx = document.getElementById(canvasId);
+                if (!ctx) return;
+                new Chart(ctx.getContext('2d'), {
                     type: 'line', data: { labels, datasets }, plugins: [whiteBackgroundPlugin],
                     options: {
                         responsive: true, maintainAspectRatio: false,
@@ -406,4 +406,3 @@
     </script>
 </body>
 </html>
-
