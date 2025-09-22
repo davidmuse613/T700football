@@ -48,6 +48,7 @@
                 <div class="flex items-center space-x-2 sm:space-x-3">
                     <a onclick="showPage('2025')" class="nav-link">Live Season (2025)</a>
                     <a href="archive.html" class="nav-link">Seasons Archive</a>
+                    <a href="tfa.html" class="nav-link">Turd Ferguson Award</a>
                     <a onclick="showPage('rules')" class="nav-link">Rules</a>
                 </div>
             </div>
@@ -211,7 +212,7 @@
         
         function renderTableAndCharts(year, overrideData = null) {
             const data = overrideData || seasonData[year];
-            const { owners, games, abbrMap, logoMap, currentWeek } = data;
+            const { owners, games, abbrMap, logoMap } = data;
             const WEEKS = 18;
             
             const allGamesByWeek = new Map();
@@ -395,3 +396,4 @@
     </script>
 </body>
 </html>
+
