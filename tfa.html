@@ -31,7 +31,7 @@
 
   <script>
     const SPREADS_API_KEY = 'cb952abc30dff15066120754a630f558';
-    const SCORES_API_KEY = '123';  // Ensure this is correct
+    const SCORES_API_KEY = '123';
     const NFL_LEAGUE_ID = '4391';
     const YEAR = '2025';
 
@@ -62,40 +62,39 @@
     ];
     const teamAbbrs = owners.map(o => o.teamAbbr);
 
+    async function fetchSpreadsForWeek(week) {
+      const url = `https://api.sportsgameodds.com/v2/odds?sport=nfl&seasonWeek=W${week}`;
+      try {
+        const response = await fetch(url, { headers: { 'X-Api-Key': SPREADS_API_KEY } });
+        if (!response.ok) throw new Error(`Week ${week}: ${response.status}`);
+        const json = await response.json();
+        console.log(`✅ Spreads W${week}`, json);
+        return json.data || [];
+      } catch (err) {
+        console.warn(`⚠️ Failed spreads fetch for week ${week}`, err);
+        return [];
+      }
+    }
+
+    async function fetchAllSpreads() {
+      const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
+      const results = await Promise.all(weeks.map(w => fetchSpreadsForWeek(w)));
+      return results.flat();
+    }
+
     async function fetchAllData() {
       const scoresUrl = `https://www.thesportsdb.com/api/v1/json/${SCORES_API_KEY}/eventsseason.php?id=${NFL_LEAGUE_ID}&s=${YEAR}`;
-      const spreadsUrl = `https://api.sportsgameodds.com/v2/odds?sport=nfl`;
-
       console.log("Fetching scores from:", scoresUrl);
-      console.log("Fetching spreads from:", spreadsUrl);
-
       try {
-        const [scoresResp, spreadsResp] = await Promise.all([
-          fetch(scoresUrl),
-          fetch(spreadsUrl, {
-            headers: {
-              'X-Api-Key': SPREADS_API_KEY
-            }
-          })
-        ]);
-
-        if (!scoresResp.ok) {
-          throw new Error(`Scores API error: ${scoresResp.status} ${scoresResp.statusText}`);
-        }
-        if (!spreadsResp.ok) {
-          throw new Error(`Spreads API error: ${spreadsResp.status} ${spreadsResp.statusText}`);
-        }
-
+        const scoresResp = await fetch(scoresUrl);
+        if (!scoresResp.ok) throw new Error(`Scores API error: ${scoresResp.status}`);
         const scoresJson = await scoresResp.json();
-        const spreadsJson = await spreadsResp.json();
-
         console.log("Scores JSON:", scoresJson);
-        console.log("Spreads JSON:", spreadsJson);
 
-        const events = scoresJson.events || [];
-        const spreadData = spreadsJson.data || [];
+        const spreadsData = await fetchAllSpreads();
+        console.log("Combined spreads:", spreadsData);
 
-        processAndRenderData(events, spreadData);
+        processAndRenderData(scoresJson.events || [], spreadsData);
       } catch (err) {
         console.error("Fetch or JSON error:", err);
         document.getElementById('tfa-container').innerHTML =
@@ -105,21 +104,15 @@
 
     function getSpreadValue(game) {
       if (!game.odds) return null;
-      // Try multiple possible paths
       let dk = game.odds['points-home-game-sp-home']?.byBookmaker?.draftkings
-           || game.odds['points-home']?.byBookmaker?.draftkings
-           || Object.values(game.odds).find(o => o.byBookmaker?.draftkings)?.byBookmaker.draftkings;
-      if (!dk) return null;
-      if (dk.spread !== undefined && dk.spread !== null) {
-        return parseFloat(dk.spread);
-      }
-      return null;
+        || game.odds['points-home']?.byBookmaker?.draftkings
+        || Object.values(game.odds).find(o => o.byBookmaker?.draftkings)?.byBookmaker.draftkings;
+      return dk && dk.spread !== undefined ? parseFloat(dk.spread) : null;
     }
 
     function processAndRenderData(events, spreads) {
       const weeklyData = {};
 
-      // Process scores events
       events.forEach(game => {
         const week = parseInt(game.intRound);
         if (!week) return;
@@ -139,31 +132,21 @@
         }
       });
 
-      // Process spreads
       spreads.forEach(game => {
-        // derive week number: some APIs embed game.info.seasonWeek = "Wxx"
-        let wk = null;
-        const wStr = game.info?.seasonWeek;
-        if (wStr && wStr.startsWith("W")) {
-          wk = parseInt(wStr.slice(1));
-        }
+        const weekStr = game.info?.seasonWeek;
+        if (!weekStr || !weekStr.startsWith("W")) return;
+        const wk = parseInt(weekStr.slice(1));
         if (!wk || !weeklyData[wk]) return;
 
         const home = TEAM_NAME_TO_ABBR_MAP[game.teams.home.names.long];
         const away = TEAM_NAME_TO_ABBR_MAP[game.teams.away.names.long];
-
         const sp = getSpreadValue(game);
         if (sp === null) return;
 
-        if (teamAbbrs.includes(home)) {
-          (weeklyData[wk][home] ||= {}).spread = sp;
-        }
-        if (teamAbbrs.includes(away)) {
-          (weeklyData[wk][away] ||= {}).spread = -sp;
-        }
+        if (teamAbbrs.includes(home)) (weeklyData[wk][home] ||= {}).spread = sp;
+        if (teamAbbrs.includes(away)) (weeklyData[wk][away] ||= {}).spread = -sp;
       });
 
-      // Compute final and highlight
       const highlights = {};
       for (let w = 1; w <= 18; w++) {
         if (!weeklyData[w]) continue;
@@ -173,14 +156,8 @@
           if (!d) return;
           if (typeof d.diff === 'number' && typeof d.spread === 'number') {
             d.final = d.diff + d.spread;
-            if (d.final > maxF) {
-              maxF = d.final;
-              maxT = t;
-            }
-            if (d.final < minF) {
-              minF = d.final;
-              minT = t;
-            }
+            if (d.final > maxF) { maxF = d.final; maxT = t; }
+            if (d.final < minF) { minF = d.final; minT = t; }
           }
         });
         highlights[w] = { winner: maxT, loser: minT };
@@ -191,13 +168,9 @@
 
     function renderTable(weeklyData, highlights) {
       let html = `<table><thead><tr><th>Team</th>`;
-      for (let w = 1; w <= 18; w++) {
-        html += `<th colspan="3">Wk ${w}</th>`;
-      }
+      for (let w = 1; w <= 18; w++) html += `<th colspan="3">Wk ${w}</th>`;
       html += `</tr><tr>`;
-      for (let w = 1; w <= 18; w++) {
-        html += `<th>Spr</th><th>Diff</th><th>Final</th>`;
-      }
+      for (let w = 1; w <= 18; w++) html += `<th>Spr</th><th>Diff</th><th>Final</th>`;
       html += `</tr></thead><tbody>`;
 
       owners.forEach(o => {
