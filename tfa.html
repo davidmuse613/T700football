@@ -7,21 +7,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #111827;
-            color: #e5e7eb;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #111827; color: #e5e7eb; }
         .table-container { max-width: 100%; overflow-x: auto; }
         table { border-collapse: separate; border-spacing: 0; min-width: 1200px; }
         th, td { border: 1px solid #374151; padding: 8px; text-align: center; white-space: nowrap; }
         th { background-color: #1f2937; color: #d1d5db; font-weight: 600; position: sticky; top: 0; z-index: 10; }
         tr:nth-child(even) { background-color: #1f2937; }
-        nav a { padding: 6px 12px; font-size: 0.875rem; border-radius: 6px; transition: background-color 0.2s; cursor: pointer; }
-        nav a.active { background-color: #3b82f6; color: white; font-weight: 500; }
-        nav a:not(.active):hover { background-color: #374151; }
-        .tfa-winner { background-color: #a16207; color: #fef08a; } /* Brown */
-        .tfa-loser { background-color: #166534; color: #a7f3d0; } /* Green */
+        .tfa-winner { background-color: #a16207; color: #fef08a; } 
+        .tfa-loser { background-color: #166534; color: #a7f3d0; } 
     </style>
 </head>
 <body class="bg-gray-900">
@@ -43,7 +36,6 @@
             <h1 class="text-3xl sm:text-4xl font-bold text-white">💩 Turd Ferguson Award 💩</h1>
             <p class="text-lg text-gray-400 mt-2">2025 Season Analysis</p>
         </header>
-
         <div id="tfa-container" class="table-container">
             <div class="text-center p-8">Loading award data...</div>
         </div>
@@ -55,8 +47,8 @@
         const NFL_LEAGUE_ID = '4391';
         const YEAR = '2025';
 
-        const TEAM_NAME_TO_ABBR_MAP = { 'Atlanta Falcons': 'ATL', 'Carolina Panthers': 'CAR', 'Cincinnati Bengals': 'CIN', 'Detroit Lions': 'DET', 'Green Bay Packers': 'GNB', 'Los Angeles Chargers': 'LAC', 'Las Vegas Raiders': 'LVR', 'New England Patriots': 'NWE', 'New York Giants': 'NYG', 'Pittsburgh Steelers': 'PIT', 'Tampa Bay Buccaneers': 'TAM', 'Seattle Seahawks': 'SEA', 'Dallas Cowboys': 'DAL', 'Washington Redskins': 'WAS', 'Washington Commanders': 'WAS', 'Oakland Raiders': 'LVR', 'San Diego Chargers': 'LAC', 'St. Louis Rams': 'LAR', 'Washington': 'WAS' };
-        
+        const TEAM_NAME_TO_ABBR_MAP = { 'Atlanta Falcons': 'ATL', 'Carolina Panthers': 'CAR', 'Cincinnati Bengals': 'CIN', 'Detroit Lions': 'DET', 'Green Bay Packers': 'GNB', 'Los Angeles Chargers': 'LAC', 'Las Vegas Raiders': 'LVR', 'New England Patriots': 'NWE', 'New York Giants': 'NYG', 'Pittsburgh Steelers': 'PIT', 'Tampa Bay Buccaneers': 'TAM', 'Seattle Seahawks': 'SEA', 'Dallas Cowboys': 'DAL' };
+
         const owners = [ { name: "Greg", teamAbbr: "ATL" }, { name: "Ethan, Johnny, Bobby", teamAbbr: "CAR" }, { name: "Danger", teamAbbr: "CIN" }, { name: "Nick", teamAbbr: "DET" }, { name: "David, Bob", teamAbbr: "GNB" }, { name: "Russ", teamAbbr: "LVR" }, { name: "Stefan", teamAbbr: "LAC" }, { name: "Chuck", teamAbbr: "NWE" }, { name: "Pat", teamAbbr: "NYG" }, { name: "Kyle", teamAbbr: "PIT" } ];
         const teamAbbrs = owners.map(o => o.teamAbbr);
 
@@ -71,133 +63,88 @@
                 ]);
                 const scoresData = await scoresResponse.json();
                 const spreadsData = await spreadsResponse.json();
+                const spreads = spreadsData?.data || [];
 
-                // Correctly access the .data property from the v2 API response
-                if (spreadsData && spreadsData.data) {
-                    processAndRenderData(scoresData.events, spreadsData.data);
-                } else {
-                     throw new Error('Spreads data not found in API response.');
-                }
+                processAndRenderData(scoresData.events || [], spreads);
             } catch (error) {
-                document.getElementById('tfa-container').innerHTML = `<div class="text-center text-red-400 p-8">Failed to load data from one or more sources.</div>`;
+                document.getElementById('tfa-container').innerHTML = `<div class="text-center text-red-400 p-8">Failed to load data. Please try again later.</div>`;
                 console.error("Error fetching data:", error);
             }
+        }
+
+        function getSpreadValue(game) {
+            if (!game.odds) return null;
+            const draftkings = game.odds['points-home-game-sp-home']?.byBookmaker?.draftkings
+                || game.odds['points-home']?.byBookmaker?.draftkings
+                || Object.values(game.odds)[0]?.byBookmaker?.draftkings;
+            return draftkings ? parseFloat(draftkings.spread) : null;
         }
 
         function processAndRenderData(scores, spreads) {
             const weeklyData = {};
 
-            // Process Scores
-            if (scores) {
-                scores.forEach(game => {
-                    const week = parseInt(game.intRound);
-                    if (!weeklyData[week]) weeklyData[week] = {};
-                    
-                    const homeAbbr = TEAM_NAME_TO_ABBR_MAP[game.strHomeTeam];
-                    const awayAbbr = TEAM_NAME_TO_ABBR_MAP[game.strAwayTeam];
+            scores.forEach(game => {
+                const week = parseInt(game.intRound);
+                if (!week) return;
+                if (!weeklyData[week]) weeklyData[week] = {};
+                const home = TEAM_NAME_TO_ABBR_MAP[game.strHomeTeam];
+                const away = TEAM_NAME_TO_ABBR_MAP[game.strAwayTeam];
+                if (teamAbbrs.includes(home) && game.intHomeScore) {
+                    weeklyData[week][home] = { diff: parseInt(game.intHomeScore) - parseInt(game.intAwayScore) };
+                }
+                if (teamAbbrs.includes(away) && game.intAwayScore) {
+                    weeklyData[week][away] = { diff: parseInt(game.intAwayScore) - parseInt(game.intHomeScore) };
+                }
+            });
 
-                    if (teamAbbrs.includes(homeAbbr) && game.intHomeScore !== null) {
-                        const diff = parseInt(game.intHomeScore) - parseInt(game.intAwayScore);
-                        weeklyData[week][homeAbbr] = { ...weeklyData[week][homeAbbr], diff };
-                    }
-                    if (teamAbbrs.includes(awayAbbr) && game.intAwayScore !== null) {
-                        const diff = parseInt(game.intAwayScore) - parseInt(game.intHomeScore);
-                        weeklyData[week][awayAbbr] = { ...weeklyData[week][awayAbbr], diff };
-                    }
-                });
-            }
+            spreads.forEach(game => {
+                const weekInfo = game.info?.seasonWeek?.split(" ") || [];
+                const weekString = weekInfo.find(s => s.startsWith("W"));
+                const week = weekString ? parseInt(weekString.replace("W", "")) : null;
+                if (!week || !weeklyData[week]) return;
+                const home = TEAM_NAME_TO_ABBR_MAP[game.teams.home.names.long];
+                const away = TEAM_NAME_TO_ABBR_MAP[game.teams.away.names.long];
+                const spread = getSpreadValue(game);
+                if (spread !== null) {
+                    if (teamAbbrs.includes(home)) weeklyData[week][home].spread = spread;
+                    if (teamAbbrs.includes(away)) weeklyData[week][away].spread = -spread;
+                }
+            });
 
-            // Process Spreads
-            if (Array.isArray(spreads)) {
-                spreads.forEach(game => {
-                    // Extract week number from seasonWeek field
-                    const seasonWeekInfo = game.info && game.info.seasonWeek ? game.info.seasonWeek.split(" ") : [];
-                    const weekString = seasonWeekInfo.find(s => s.startsWith('W'));
-                    const week = weekString ? parseInt(weekString.replace('W', '')) : null;
-
-                    if (!week || !weeklyData[week]) return;
-
-                    const homeAbbr = TEAM_NAME_TO_ABBR_MAP[game.teams.home.names.long];
-                    const awayAbbr = TEAM_NAME_TO_ABBR_MAP[game.teams.away.names.long];
-                    
-                    const bookmaker = game.odds['points-home-game-sp-home']?.byBookmaker?.draftkings;
-
-                    if (bookmaker) {
-                         if (teamAbbrs.includes(homeAbbr)) {
-                            weeklyData[week][homeAbbr] = { ...weeklyData[week][homeAbbr], spread: parseFloat(bookmaker.spread) };
-                        }
-                        if (teamAbbrs.includes(awayAbbr)) {
-                            weeklyData[week][awayAbbr] = { ...weeklyData[week][awayAbbr], spread: -parseFloat(bookmaker.spread) };
-                        }
-                    }
-                });
-            }
-
-            // Calculate Final and Highlights
             const highlights = {};
-            for (let week = 1; week <= 18; week++) {
-                if (!weeklyData[week]) continue;
-                let maxFinal = -Infinity;
-                let minFinal = Infinity;
-                let maxTeam = null;
-                let minTeam = null;
-
-                teamAbbrs.forEach(abbr => {
-                    const data = weeklyData[week][abbr];
-                    if (data && typeof data.diff === 'number' && typeof data.spread === 'number') {
-                        data.final = data.diff + data.spread;
-                        if (data.final > maxFinal) {
-                            maxFinal = data.final;
-                            maxTeam = abbr;
-                        }
-                        if (data.final < minFinal) {
-                            minFinal = data.final;
-                            minTeam = abbr;
-                        }
+            for (let w = 1; w <= 18; w++) {
+                if (!weeklyData[w]) continue;
+                let maxF = -Infinity, minF = Infinity, maxT = null, minT = null;
+                teamAbbrs.forEach(t => {
+                    const d = weeklyData[w][t];
+                    if (d && typeof d.diff === 'number' && typeof d.spread === 'number') {
+                        d.final = d.diff + d.spread;
+                        if (d.final > maxF) { maxF = d.final; maxT = t; }
+                        if (d.final < minF) { minF = d.final; minT = t; }
                     }
                 });
-                highlights[week] = { winner: maxTeam, loser: minTeam };
+                highlights[w] = { winner: maxT, loser: minT };
             }
             renderTable(weeklyData, highlights);
         }
 
         function renderTable(weeklyData, highlights) {
-            let tableHtml = `
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr>
-                            <th rowspan="2">Team</th>`;
-            for (let i = 1; i <= 18; i++) {
-                tableHtml += `<th colspan="3">Week ${i}</th>`;
-            }
-            tableHtml += `
-                        </tr>
-                        <tr>`;
-            for (let i = 1; i <= 18; i++) {
-                tableHtml += `<th>Predicted</th><th>Actual</th><th>Final</th>`;
-            }
-            tableHtml += `
-                        </tr>
-                    </thead>
-                    <tbody>`;
+            let tableHtml = `<table class="w-full text-sm"><thead><tr><th rowspan="2">Team</th>`;
+            for (let i = 1; i <= 18; i++) tableHtml += `<th colspan="3">Week ${i}</th>`;
+            tableHtml += `</tr><tr>`;
+            for (let i = 1; i <= 18; i++) tableHtml += `<th>Pred</th><th>Actual</th><th>Final</th>`;
+            tableHtml += `</tr></thead><tbody>`;
 
-            owners.forEach(owner => {
-                tableHtml += `<tr><td class="font-bold">${owner.name} (${owner.teamAbbr})</td>`;
-                for (let week = 1; week <= 18; week++) {
-                    const data = weeklyData[week] ? weeklyData[week][owner.teamAbbr] : null;
-                    let cellClass = '';
-                    if (highlights[week]) {
-                        if (highlights[week].winner === owner.teamAbbr) cellClass = 'tfa-winner';
-                        if (highlights[week].loser === owner.teamAbbr) cellClass = 'tfa-loser';
-                    }
-                    
-                    const spread = data && data.spread !== undefined ? (data.spread > 0 ? '+' + data.spread : data.spread) : '—';
-                    const diff = data && data.diff !== undefined ? (data.diff > 0 ? '+' + data.diff : data.diff) : '—';
-                    const final = data && data.final !== undefined ? (data.final > 0 ? '+' + data.final.toFixed(1) : data.final.toFixed(1)) : '—';
-
-                    tableHtml += `<td class="${cellClass}">${spread}</td>
-                                  <td class="${cellClass}">${diff}</td>
-                                  <td class="${cellClass}">${final}</td>`;
+            owners.forEach(o => {
+                tableHtml += `<tr><td class="font-bold">${o.name} (${o.teamAbbr})</td>`;
+                for (let w = 1; w <= 18; w++) {
+                    const d = weeklyData[w] ? weeklyData[w][o.teamAbbr] : null;
+                    const cellClass = (highlights[w]?.winner === o.teamAbbr) ? 'tfa-winner' :
+                                      (highlights[w]?.loser === o.teamAbbr) ? 'tfa-loser' : '';
+                    const spread = d?.spread !== undefined ? (d.spread > 0 ? '+'+d.spread : d.spread) : '—';
+                    const diff = d?.diff !== undefined ? (d.diff > 0 ? '+'+d.diff : d.diff) : '—';
+                    const final = d?.final !== undefined ? (d.final > 0 ? '+'+d.final.toFixed(1) : d.final?.toFixed(1)) : '—';
+                    tableHtml += `<td class="${cellClass}">${spread}</td><td class="${cellClass}">${diff}</td><td class="${cellClass}">${final}</td>`;
                 }
                 tableHtml += `</tr>`;
             });
