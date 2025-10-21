@@ -217,6 +217,8 @@ function renderTable(weeklyData, highlights) {
   html += `</tbody></table>`;
   document.getElementById("tfa-container").innerHTML = html;
 }
+window.debugData = { weeklyData, spreads }; 
+console.log("Debug data:", window.debugData);
 
 window.addEventListener("DOMContentLoaded", fetchAllData);
 </script>
