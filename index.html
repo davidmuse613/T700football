@@ -121,7 +121,8 @@
             'DAL': 'https://r2.thesportsdb.com/images/media/team/badge/wrxssu1450018209.png/tiny',
         };
         const seasonData = {
-            '2025': { isLive: true, owners: [ { name: "Greg", teamAbbr: "ATL" }, { name: "Ethan, Johnny, Bobby", teamAbbr: "CAR" }, { name: "Danger", teamAbbr: "CIN" }, { name: "Nick", teamAbbr: "DET" }, { name: "David, Bob", teamAbbr: "GNB" }, { name: "Russ", teamAbab: "LVR" }, { name: "Stefan", teamAbbr: "LAC" }, { name: "Chuck", teamAbbr: "NWE" }, { name: "Pat", teamAbbr: "NYG" }, { name: "Kyle", teamAbbr: "PIT" } ]}
+            // --- **** FIX #1: Corrected "teamAbab" to "teamAbbr" for Russ **** ---
+            '2025': { isLive: true, owners: [ { name: "Greg", teamAbbr: "ATL" }, { name: "Ethan, Johnny, Bobby", teamAbbr: "CAR" }, { name: "Danger", teamAbbr: "CIN" }, { name: "Nick", teamAbbr: "DET" }, { name: "David, Bob", teamAbbr: "GNB" }, { name: "Russ", teamAbbr: "LVR" }, { name: "Stefan", teamAbbr: "LAC" }, { name: "Chuck", teamAbbr: "NWE" }, { name: "Pat", teamAbbr: "NYG" }, { name: "Kyle", teamAbbr: "PIT" } ]}
         };
 
         // --- PAGE ROUTING LOGIC ---
@@ -251,10 +252,10 @@
                 let rowContentHTML = `<td class="font-bold text-gray-300">${week}</td>`;
                 const gamesThisWeek = allGamesByWeek.get(week) || [];
                 
-                // --- FIX: Check if week is completed (at least one game has a score) ---
                 const isWeekCompleted = gamesThisWeek.some(g => g.home_score !== null);
 
                 owners.forEach((owner, ownerIndex) => {
+                    // This lookup will now work for Russ
                     const game = gamesThisWeek.find(g => g.home_team === owner.teamAbbr || g.away_team === owner.teamAbbr);
                     let pointDiffThisWeek = 0;
 
@@ -271,24 +272,23 @@
                             
                             let resultClass = 'tie';
                             
-                            // --- **** THIS IS THE FIX for Win/Loss Logic **** ---
-                            if (pointDiffThisWeek > 0) { 
-                                resultClass = 'win'; 
-                                sectionRecords[ownerIndex].w++; 
-                            } else if (pointDiffThisWeek < 0) { 
-                                resultClass = 'loss'; 
-                                sectionRecords[ownerIndex].l++; 
-                            } else { 
-                                sectionRecords[ownerIndex].t++; 
+                            // --- **** FIX #2: Corrected Win/Loss Logic **** ---
+                            if (pointDiffThisWeek > 0) {
+                                resultClass = 'win';
+                                sectionRecords[ownerIndex].w++;
+                            } else if (pointDiffThisWeek < 0) {
+                                resultClass = 'loss';
+                                sectionRecords[ownerIndex].l++;
+                            } else {
+                                sectionRecords[ownerIndex].t++;
                             }
-                            // --- **** END OF FIX **** ---
+                            // --- **** END OF FIX #2 **** ---
 
                             rowContentHTML += `<td class="${resultClass}"><div class="font-semibold">${myTeamScore} - ${opponentScore}</div><div class="text-xs text-gray-400">${isAway ? '@' : 'vs'} ${opponentFullName}</div></td>`;
                         } else {
                             rowContentHTML += `<td>${isAway ? '@' : 'vs'} ${opponentFullName}</td>`;
                         }
                     } else {
-                        // --- FIX: Show BYE for completed weeks, otherwise "—" ---
                         if (isWeekCompleted) {
                             rowContentHTML += `<td class="bye">BYE</td>`;
                         } else {
