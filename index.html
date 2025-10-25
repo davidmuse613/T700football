@@ -48,7 +48,6 @@
                 <div class="flex items-center space-x-2 sm:space-x-3">
                     <a onclick="showPage('2025')" class="nav-link">Live Season (2025)</a>
                     <a href="archive.html" class="nav-link">Seasons Archive</a>
-                    <a href="tfa.html" class="nav-link">Turd Ferguson Award</a>
                     <a onclick="showPage('rules')" class="nav-link">Rules</a>
                 </div>
             </div>
@@ -61,6 +60,7 @@
             <p id="page-subheading" class="text-lg text-gray-400 mt-2">Scores & Standings</p>
         </header>
 
+        <!-- Page Content Containers -->
         <div id="page-2025" class="page-content"></div>
         <div id="page-rules" class="page-content bg-gray-800 p-8 rounded-lg">
             <div class="rules-content text-gray-300">
@@ -121,7 +121,6 @@
             'DAL': 'https://r2.thesportsdb.com/images/media/team/badge/wrxssu1450018209.png/tiny',
         };
         const seasonData = {
-            // --- **** FIX #1: Corrected "teamAbab" to "teamAbbr" for Russ **** ---
             '2025': { isLive: true, owners: [ { name: "Greg", teamAbbr: "ATL" }, { name: "Ethan, Johnny, Bobby", teamAbbr: "CAR" }, { name: "Danger", teamAbbr: "CIN" }, { name: "Nick", teamAbbr: "DET" }, { name: "David, Bob", teamAbbr: "GNB" }, { name: "Russ", teamAbbr: "LVR" }, { name: "Stefan", teamAbbr: "LAC" }, { name: "Chuck", teamAbbr: "NWE" }, { name: "Pat", teamAbbr: "NYG" }, { name: "Kyle", teamAbbr: "PIT" } ]}
         };
 
@@ -212,7 +211,7 @@
         
         function renderTableAndCharts(year, overrideData = null) {
             const data = overrideData || seasonData[year];
-            const { owners, games, abbrMap, logoMap } = data;
+            const { owners, games, abbrMap, logoMap, currentWeek } = data;
             const WEEKS = 18;
             
             const allGamesByWeek = new Map();
@@ -252,10 +251,7 @@
                 let rowContentHTML = `<td class="font-bold text-gray-300">${week}</td>`;
                 const gamesThisWeek = allGamesByWeek.get(week) || [];
                 
-                const isWeekCompleted = gamesThisWeek.some(g => g.home_score !== null);
-
                 owners.forEach((owner, ownerIndex) => {
-                    // This lookup will now work for Russ
                     const game = gamesThisWeek.find(g => g.home_team === owner.teamAbbr || g.away_team === owner.teamAbbr);
                     let pointDiffThisWeek = 0;
 
@@ -271,29 +267,15 @@
                             sectionRecords[ownerIndex].diff += pointDiffThisWeek;
                             
                             let resultClass = 'tie';
-                            
-                            // --- **** FIX #2: Corrected Win/Loss Logic **** ---
-                            if (pointDiffThisWeek > 0) {
-                                resultClass = 'win';
-                                sectionRecords[ownerIndex].w++;
-                            } else if (pointDiffThisWeek < 0) {
-                                resultClass = 'loss';
-                                sectionRecords[ownerIndex].l++;
-                            } else {
-                                sectionRecords[ownerIndex].t++;
-                            }
-                            // --- **** END OF FIX #2 **** ---
-
+                            if (pointDiffThisWeek > 0) { resultClass = 'win'; sectionRecords[ownerIndex].w++; }
+                            else if (pointDiffThisWeek < 0) { resultClass = 'loss'; sectionRecords[ownerIndex].l++; }
+                            else { sectionRecords[ownerIndex].t++; }
                             rowContentHTML += `<td class="${resultClass}"><div class="font-semibold">${myTeamScore} - ${opponentScore}</div><div class="text-xs text-gray-400">${isAway ? '@' : 'vs'} ${opponentFullName}</div></td>`;
                         } else {
                             rowContentHTML += `<td>${isAway ? '@' : 'vs'} ${opponentFullName}</td>`;
                         }
                     } else {
-                        if (isWeekCompleted) {
-                            rowContentHTML += `<td class="bye">BYE</td>`;
-                        } else {
-                            rowContentHTML += `<td>—</td>`;
-                        }
+                        rowContentHTML += `<td>—</td>`;
                     }
                     const lastCumulative = sectionPointDiffs[ownerIndex][sectionPointDiffs[ownerIndex].length - 1];
                     sectionPointDiffs[ownerIndex].push(lastCumulative + pointDiffThisWeek);
