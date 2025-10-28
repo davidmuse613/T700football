@@ -267,7 +267,7 @@
                         if (game.home_score !== null && game.away_score !== null && !isNaN(game.home_score) && !isNaN(game.away_score)) {
                             const myTeamScore = isAway ? game.away_score : game.home_score;
                             const opponentScore = isAway ? game.home_score : game.away_score;
-                            pointDiffThisWeek = myTeamScore - opponentScore;
+                            pointDiffThisWeek = opponentScore - myTeamScore;
                             sectionRecords[ownerIndex].diff += pointDiffThisWeek;
                             
                             let resultClass = 'tie';
