@@ -1,0 +1,107 @@
+[
+  {
+    "category": "\ud83c\udfc8 Next Gen Stat",
+    "headline": "Amon-Ra St. Brown's Slot Dominance",
+    "body": "Since 2022, Detroit's Amon-Ra St. Brown has caught over 75% of passes thrown his way out of the slot, trailing only Tyreek Hill in first-down conversions from the interior.",
+    "team": "DET",
+    "source": "Next Gen Stats"
+  },
+  {
+    "category": "\u26a1 Record Watch",
+    "headline": "T.J. Watt's Historic Pressure Rate",
+    "body": "Pittsburgh's T.J. Watt became only the second player in NFL history (after Reggie White) to log multiple 19+ sack seasons, maintaining a league-best 16.8% pressure rate since 2020.",
+    "team": "PIT",
+    "source": "NFL Research"
+  },
+  {
+    "category": "\ud83c\udfc6 Franchise History",
+    "headline": "Panthers Expansion Legacy",
+    "body": "Carolina reached the NFC Championship Game in just their second season (1996), making them one of the fastest expansion franchises to play for a conference title in league history.",
+    "team": "CAR",
+    "source": "Pro Football Reference"
+  },
+  {
+    "category": "\ud83d\udcca Efficiency Metric",
+    "headline": "Joe Burrow Against the Blitz",
+    "body": "Over the past three seasons, Joe Burrow ranks second in the NFL in passer rating against 5+ pass rushers (112.4), throwing 38 touchdowns to just 8 interceptions against extra pressure.",
+    "team": "CIN",
+    "source": "PFF Tracking"
+  },
+  {
+    "category": "\ud83e\uddc0 Lambeau Legend",
+    "headline": "Green Bay's December Home Record",
+    "body": "The Packers have won over 82% of December home games at Lambeau Field since 2010, the highest home winter win percentage of any franchise in the modern era.",
+    "team": "GNB",
+    "source": "Elias Sports Bureau"
+  },
+  {
+    "category": "\ud83c\udfaf Air Yards Alert",
+    "headline": "Maxx Crosby's Non-Stop Motor",
+    "body": "Maxx Crosby has led all NFL defensive ends in total defensive snaps played in each of the last three seasons, routinely surpassing 95% snap participation.",
+    "team": "LVR",
+    "source": "Next Gen Stats"
+  },
+  {
+    "category": "\ud83d\udee1\ufe0f Defensive Milestone",
+    "headline": "Patriots Scoring Defense Legacy",
+    "body": "The 2019-2023 Patriots defenses allowed under 20.0 points per game across a five-year stretch, continuing a 20-year franchise streak of top-10 red zone conversion defenses.",
+    "team": "NWE",
+    "source": "NFL Research"
+  },
+  {
+    "category": "\ud83d\ude80 Big Play Metric",
+    "headline": "Bijan Robinson's Elusiveness",
+    "body": "In his rookie campaign, Atlanta's Bijan Robinson forced 51 missed tackles on touches from scrimmage, the highest mark by a rookie running back since 2018.",
+    "team": "ATL",
+    "source": "Pro Football Focus"
+  },
+  {
+    "category": "\ud83d\udcdc NFL Lore",
+    "headline": "Giants Road Playoff Streak",
+    "body": "The 2007 New York Giants remain the only team in NFL history to win 11 consecutive road games in a single season, culminating in their Super Bowl XLII victory.",
+    "team": "NYG",
+    "source": "Pro Football Hall of Fame"
+  },
+  {
+    "category": "\u26a1 Modern Era Trend",
+    "headline": "The Rise of 2-High Safety Shells",
+    "body": "Between 2020 and 2025, NFL defenses increased their use of pre-snap two-high safety alignments from 38% to over 54% of plays, dropping average depth of target across the league by nearly a full yard.",
+    "team": "NFL",
+    "source": "Next Gen Stats"
+  },
+  {
+    "category": "\u23f1\ufe0f Fourth Down Revolution",
+    "headline": "Analytics Driving 4th-Down Aggression",
+    "body": "NFL teams attempted more 4th-down conversions in the last three seasons combined than during the entire decade of the 1990s, with conversion rates hovering around 51%.",
+    "team": "NFL",
+    "source": "Football Outsiders"
+  },
+  {
+    "category": "\ud83c\udfaf Red Zone Precision",
+    "headline": "Lions Play-Action Mastery",
+    "body": "During their 2023-2024 division title run, Detroit utilized play-action on 31% of early-down red zone attempts, resulting in an NFL-leading 68.2% touchdown efficiency.",
+    "team": "DET",
+    "source": "NFL Next Gen Stats"
+  },
+  {
+    "category": "\ud83c\udfc8 Historical Milestone",
+    "headline": "Steelers 50-Year Non-Losing Streak",
+    "body": "Pittsburgh has not finished a regular season with more than 10 losses since 1969, by far the longest active streak in North American professional sports.",
+    "team": "PIT",
+    "source": "Elias Sports Bureau"
+  },
+  {
+    "category": "\u26a1 Special Teams Highlight",
+    "headline": "Packers Blocked Field Goal Rate",
+    "body": "In the 2024 season, Green Bay recorded 3 blocked kicks in a single 5-week span, the fastest such team pace in the NFL since the 2014 Eagles.",
+    "team": "GNB",
+    "source": "Pro Football Reference"
+  },
+  {
+    "category": "\ud83d\udcca Possession Metric",
+    "headline": "Panthers Time of Possession Control",
+    "body": "During their 2015 15-1 season, Carolina held an average time of possession of 32 minutes and 4 seconds per game, second-highest in the NFL over the last decade.",
+    "team": "CAR",
+    "source": "Pro Football Reference"
+  }
+]

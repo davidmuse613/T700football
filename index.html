@@ -61,6 +61,25 @@
             <p id="page-subheading" class="text-lg text-gray-400 mt-2">Scores & Standings</p>
         </header>
 
+        <!-- NFL Facts & Insights Card -->
+        <div id="facts-card-container" class="mb-8 p-5 sm:p-6 rounded-lg bg-gray-800 border border-gray-700 shadow-md">
+            <div class="flex items-center justify-between border-b border-gray-700 pb-3 mb-3">
+                <span id="factCategory" class="px-3 py-1 text-xs font-semibold rounded-full bg-blue-900 text-blue-300 border border-blue-700">
+                    📊 NFL Fact of the Day
+                </span>
+                <button onclick="displayRandomFact()" class="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">
+                    🎲 Roll Another Fact
+                </button>
+            </div>
+            <h3 id="factHeadline" class="text-lg sm:text-xl font-bold text-white mb-2">Loading NFL insight...</h3>
+            <p id="factBody" class="text-gray-300 text-sm leading-relaxed"></p>
+            <div class="flex items-center justify-between text-xs text-gray-500 mt-4 italic">
+                <span id="factSource"></span>
+                <span class="text-gray-500 font-normal">New fact on every refresh</span>
+            </div>
+        </div>
+
+
         <div id="page-2026" class="page-content"></div>
         <div id="page-rules" class="page-content bg-gray-800 p-8 rounded-lg">
             <div class="rules-content text-gray-300">
@@ -173,7 +192,7 @@
             const promises = [];
             for (let week = 1; week <= WEEKS; week++) {
                 const url = `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsround.php?id=${NFL_LEAGUE_ID}&r=${week}&s=${year}`;
-                promises.push(fetch(url).then(res => res.json()).catch(err => ({ events: [] })));
+                promises.push(fetch(url).then(res => res.json()));
             }
 
             const allResults = await Promise.all(promises);
@@ -415,7 +434,31 @@
             }, 0);
         }
 
+        
+        let poolFacts = [];
+
+        async function loadFacts() {
+            try {
+                const res = await fetch('facts.json');
+                poolFacts = await res.json();
+                displayRandomFact();
+            } catch (err) {
+                console.error("Error loading facts.json:", err);
+            }
+        }
+
+        function displayRandomFact() {
+            if (!poolFacts || poolFacts.length === 0) return;
+            const randomIndex = Math.floor(Math.random() * poolFacts.length);
+            const item = poolFacts[randomIndex];
+            document.getElementById('factCategory').textContent = item.category || '📊 NFL Stat';
+            document.getElementById('factHeadline').textContent = item.headline || '';
+            document.getElementById('factBody').textContent = item.body || '';
+            document.getElementById('factSource').textContent = item.source ? `Source: ${item.source}` : '';
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            loadFacts();
             showPage('2026');
         });
     </script>

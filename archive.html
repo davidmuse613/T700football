@@ -134,70 +134,8 @@
             const data = seasonData[year];
             if (!data) return;
             container.innerHTML = `<div id="content-container-${year}"><div class="text-center text-gray-400 p-8">Loading ${year} season data...</div></div>`;
-            if (data.games && data.games.length > 0) {
-                renderTableAndCharts(year);
-            } else {
-                await fetchAndRenderArchiveSeason(year);
-            }
+            renderTableAndCharts(year);
         }
-
-        async function fetchAndRenderArchiveSeason(year) {
-    const API_KEY = '123';
-    const NFL_LEAGUE_ID = '4391';
-    const WEEKS = (year < 2021) ? 17 : 18;
-    const contentContainer = document.getElementById(`content-container-${year}`);
-    
-    // Try both single year (e.g. 2025) and multi-year format (e.g. 2025-2026)
-    const seasonFormats = [year, `${year}-${parseInt(year) + 1}`];
-    let allEvents = [];
-
-    for (const seasonStr of seasonFormats) {
-        const promises = [];
-        for (let week = 1; week <= WEEKS; week++) {
-            const url = `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsround.php?id=${NFL_LEAGUE_ID}&r=${week}&s=${seasonStr}`;
-            promises.push(fetch(url).then(res => res.json()).catch(() => ({ events: [] })));
-        }
-
-        const allResults = await Promise.all(promises);
-        allResults.forEach(result => {
-            if (result && result.events) {
-                allEvents = allEvents.concat(result.events);
-            }
-        });
-
-        if (allEvents.length > 0) break;
-    }
-
-    if (allEvents.length > 0) {
-        const abbrToFullNameMap = {};
-        allEvents.forEach(event => {
-            const homeTeamAbbr = TEAM_NAME_TO_ABBR_MAP[event.strHomeTeam] || event.strHomeTeam;
-            const awayTeamAbbr = TEAM_NAME_TO_ABBR_MAP[event.strAwayTeam] || event.strAwayTeam;
-            if (homeTeamAbbr !== event.strHomeTeam) abbrToFullNameMap[homeTeamAbbr] = event.strHomeTeam;
-            if (awayTeamAbbr !== event.strAwayTeam) abbrToFullNameMap[awayTeamAbbr] = event.strAwayTeam;
-        });
-
-        const processedGames = allEvents.map(event => {
-            const homeTeamAbbr = TEAM_NAME_TO_ABBR_MAP[event.strHomeTeam] || event.strHomeTeam;
-            const awayTeamAbbr = TEAM_NAME_TO_ABBR_MAP[event.strAwayTeam] || event.strAwayTeam;
-            return {
-                week: parseInt(event.intRound),
-                date: event.dateEvent,
-                time: event.strTime,
-                home_team: homeTeamAbbr,
-                home_score: event.intHomeScore !== null ? parseInt(event.intHomeScore) : null,
-                away_team: awayTeamAbbr,
-                away_score: event.intAwayScore !== null ? parseInt(event.intAwayScore) : null,
-            };
-        });
-        seasonData[year].games = processedGames;
-        seasonData[year].abbrMap = abbrToFullNameMap;
-        seasonData[year].logoMap = LOGO_MAP;
-        renderTableAndCharts(year);
-    } else {
-        contentContainer.innerHTML = `<div class="text-center text-red-400 p-8">Could not fetch archived data for ${year}.</div>`;
-    }
-}
 
         function renderTableAndCharts(year, overrideData = null) {
             const data = overrideData || seasonData[year];
@@ -409,6 +347,279 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            const csvData2025 = `Week,Date,Away Team,Away Score,Home Team,Home Score,Status
+1,2025-09-05,Dallas Cowboys,20,Philadelphia Eagles,24,FT
+1,2025-09-06,Kansas City Chiefs,21,Los Angeles Chargers,27,FT
+1,2025-09-07,Tampa Bay Buccaneers,23,Atlanta Falcons,20,FT
+1,2025-09-07,Cincinnati Bengals,17,Cleveland Browns,16,FT
+1,2025-09-07,Miami Dolphins,8,Indianapolis Colts,33,FT
+1,2025-09-07,Las Vegas Raiders,20,New England Patriots,13,FT
+1,2025-09-07,Arizona Cardinals,20,New Orleans Saints,13,FT
+1,2025-09-07,Pittsburgh Steelers,34,New York Jets,32,FT
+1,2025-09-07,New York Giants,6,Washington Commanders,21,FT
+1,2025-09-07,Carolina Panthers,10,Jacksonville Jaguars,26,FT
+1,2025-09-07,Tennessee Titans,12,Denver Broncos,20,FT
+1,2025-09-07,San Francisco 49ers,17,Seattle Seahawks,13,FT
+1,2025-09-07,Detroit Lions,13,Green Bay Packers,27,FT
+1,2025-09-07,Houston Texans,9,Los Angeles Rams,14,FT
+1,2025-09-08,Baltimore Ravens,40,Buffalo Bills,41,FT
+1,2025-09-09,Minnesota Vikings,27,Chicago Bears,24,FT
+2,2025-09-12,Washington Commanders,18,Green Bay Packers,27,FT
+2,2025-09-14,Jacksonville Jaguars,27,Cincinnati Bengals,31,FT
+2,2025-09-14,New York Giants,37,Dallas Cowboys,40,AOT
+2,2025-09-14,Los Angeles Rams,33,Tennessee Titans,19,FT
+2,2025-09-14,New England Patriots,33,Miami Dolphins,27,FT
+2,2025-09-14,Buffalo Bills,30,New York Jets,10,FT
+2,2025-09-14,Seattle Seahawks,31,Pittsburgh Steelers,17,FT
+2,2025-09-14,Cleveland Browns,17,Baltimore Ravens,41,FT
+2,2025-09-14,Denver Broncos,28,Indianapolis Colts,29,FT
+2,2025-09-14,Carolina Panthers,22,Arizona Cardinals,27,FT
+2,2025-09-14,Philadelphia Eagles,20,Kansas City Chiefs,17,FT
+2,2025-09-14,Chicago Bears,21,Detroit Lions,52,FT
+2,2025-09-14,San Francisco 49ers,26,New Orleans Saints,21,FT
+2,2025-09-15,Atlanta Falcons,22,Minnesota Vikings,6,FT
+2,2025-09-15,Tampa Bay Buccaneers,20,Houston Texans,19,FT
+2,2025-09-16,Los Angeles Chargers,20,Las Vegas Raiders,9,FT
+3,2025-09-19,Miami Dolphins,21,Buffalo Bills,31,FT
+3,2025-09-21,Green Bay Packers,10,Cleveland Browns,13,FT
+3,2025-09-21,Indianapolis Colts,41,Tennessee Titans,20,FT
+3,2025-09-21,Cincinnati Bengals,10,Minnesota Vikings,48,FT
+3,2025-09-21,Pittsburgh Steelers,21,New England Patriots,14,FT
+3,2025-09-21,Los Angeles Rams,26,Philadelphia Eagles,33,FT
+3,2025-09-21,New York Jets,27,Tampa Bay Buccaneers,29,FT
+3,2025-09-21,Las Vegas Raiders,24,Washington Commanders,41,FT
+3,2025-09-21,Atlanta Falcons,0,Carolina Panthers,30,FT
+3,2025-09-21,Houston Texans,10,Jacksonville Jaguars,17,FT
+3,2025-09-21,Denver Broncos,20,Los Angeles Chargers,23,FT
+3,2025-09-21,New Orleans Saints,13,Seattle Seahawks,44,FT
+3,2025-09-21,Dallas Cowboys,14,Chicago Bears,31,FT
+3,2025-09-21,Arizona Cardinals,15,San Francisco 49ers,16,FT
+3,2025-09-22,Kansas City Chiefs,22,New York Giants,9,FT
+3,2025-09-23,Detroit Lions,38,Baltimore Ravens,30,FT
+4,2025-09-26,Seattle Seahawks,23,Arizona Cardinals,20,FT
+4,2025-09-28,Minnesota Vikings,21,Pittsburgh Steelers,24,FT
+4,2025-09-28,Washington Commanders,27,Atlanta Falcons,34,FT
+4,2025-09-28,New Orleans Saints,19,Buffalo Bills,31,FT
+4,2025-09-28,Cleveland Browns,10,Detroit Lions,34,FT
+4,2025-09-28,Carolina Panthers,13,New England Patriots,42,FT
+4,2025-09-28,Los Angeles Chargers,18,New York Giants,21,FT
+4,2025-09-28,Philadelphia Eagles,31,Tampa Bay Buccaneers,25,FT
+4,2025-09-28,Tennessee Titans,0,Houston Texans,26,FT
+4,2025-09-28,Indianapolis Colts,20,Los Angeles Rams,27,FT
+4,2025-09-28,Jacksonville Jaguars,26,San Francisco 49ers,21,FT
+4,2025-09-28,Baltimore Ravens,20,Kansas City Chiefs,37,FT
+4,2025-09-28,Chicago Bears,25,Las Vegas Raiders,24,FT
+4,2025-09-29,Green Bay Packers,40,Dallas Cowboys,40,AOT
+4,2025-09-29,New York Jets,21,Miami Dolphins,27,FT
+4,2025-09-30,Cincinnati Bengals,3,Denver Broncos,28,FT
+5,2025-10-03,San Francisco 49ers,26,Los Angeles Rams,23,AOT
+5,2025-10-05,Minnesota Vikings,21,Cleveland Browns,17,FT
+5,2025-10-05,Las Vegas Raiders,6,Indianapolis Colts,40,FT
+5,2025-10-05,New York Giants,14,New Orleans Saints,26,FT
+5,2025-10-05,Dallas Cowboys,37,New York Jets,22,FT
+5,2025-10-05,Denver Broncos,21,Philadelphia Eagles,17,FT
+5,2025-10-05,Miami Dolphins,24,Carolina Panthers,27,FT
+5,2025-10-05,Houston Texans,44,Baltimore Ravens,10,FT
+5,2025-10-05,Tennessee Titans,22,Arizona Cardinals,21,FT
+5,2025-10-05,Tampa Bay Buccaneers,38,Seattle Seahawks,35,FT
+5,2025-10-05,Detroit Lions,37,Cincinnati Bengals,24,FT
+5,2025-10-05,Washington Commanders,27,Los Angeles Chargers,10,FT
+5,2025-10-06,New England Patriots,23,Buffalo Bills,20,FT
+5,2025-10-07,Kansas City Chiefs,28,Jacksonville Jaguars,31,FT
+6,2025-10-10,Philadelphia Eagles,17,New York Giants,34,FT
+6,2025-10-12,Denver Broncos,13,New York Jets,11,FT
+6,2025-10-12,Arizona Cardinals,27,Indianapolis Colts,31,FT
+6,2025-10-12,Los Angeles Chargers,29,Miami Dolphins,27,FT
+6,2025-10-12,Cleveland Browns,9,Pittsburgh Steelers,23,FT
+6,2025-10-12,San Francisco 49ers,19,Tampa Bay Buccaneers,30,FT
+6,2025-10-12,Dallas Cowboys,27,Carolina Panthers,30,FT
+6,2025-10-12,Seattle Seahawks,20,Jacksonville Jaguars,12,FT
+6,2025-10-12,Los Angeles Rams,17,Baltimore Ravens,3,FT
+6,2025-10-12,Tennessee Titans,10,Las Vegas Raiders,20,FT
+6,2025-10-12,Cincinnati Bengals,18,Green Bay Packers,27,FT
+6,2025-10-12,New England Patriots,25,New Orleans Saints,19,FT
+6,2025-10-13,Detroit Lions,17,Kansas City Chiefs,30,FT
+6,2025-10-13,Buffalo Bills,14,Atlanta Falcons,24,FT
+6,2025-10-14,Chicago Bears,25,Washington Commanders,24,FT
+7,2025-10-17,Pittsburgh Steelers,31,Cincinnati Bengals,33,FT
+7,2025-10-19,Los Angeles Rams,35,Jacksonville Jaguars,7,FT
+7,2025-10-19,New Orleans Saints,14,Chicago Bears,26,FT
+7,2025-10-19,Miami Dolphins,6,Cleveland Browns,31,FT
+7,2025-10-19,New England Patriots,31,Tennessee Titans,13,FT
+7,2025-10-19,Las Vegas Raiders,0,Kansas City Chiefs,31,FT
+7,2025-10-19,Philadelphia Eagles,28,Minnesota Vikings,22,FT
+7,2025-10-19,Carolina Panthers,13,New York Jets,6,FT
+7,2025-10-19,New York Giants,32,Denver Broncos,33,FT
+7,2025-10-19,Indianapolis Colts,38,Los Angeles Chargers,24,FT
+7,2025-10-19,Washington Commanders,22,Dallas Cowboys,44,FT
+7,2025-10-19,Green Bay Packers,27,Arizona Cardinals,23,FT
+7,2025-10-20,Atlanta Falcons,10,San Francisco 49ers,20,FT
+7,2025-10-20,Tampa Bay Buccaneers,9,Detroit Lions,24,FT
+7,2025-10-21,Houston Texans,19,Seattle Seahawks,27,FT
+8,2025-10-24,Minnesota Vikings,10,Los Angeles Chargers,37,FT
+8,2025-10-26,Miami Dolphins,34,Atlanta Falcons,10,FT
+8,2025-10-26,New York Jets,39,Cincinnati Bengals,38,FT
+8,2025-10-26,Cleveland Browns,13,New England Patriots,32,FT
+8,2025-10-26,New York Giants,20,Philadelphia Eagles,38,FT
+8,2025-10-26,Buffalo Bills,40,Carolina Panthers,9,FT
+8,2025-10-26,Chicago Bears,16,Baltimore Ravens,30,FT
+8,2025-10-26,San Francisco 49ers,15,Houston Texans,26,FT
+8,2025-10-26,Tampa Bay Buccaneers,23,New Orleans Saints,3,FT
+8,2025-10-26,Dallas Cowboys,24,Denver Broncos,44,FT
+8,2025-10-26,Tennessee Titans,14,Indianapolis Colts,38,FT
+8,2025-10-27,Green Bay Packers,35,Pittsburgh Steelers,25,FT
+8,2025-10-28,Washington Commanders,7,Kansas City Chiefs,28,FT
+9,2025-10-31,Baltimore Ravens,28,Miami Dolphins,6,FT
+9,2025-11-02,Chicago Bears,47,Cincinnati Bengals,42,FT
+9,2025-11-02,Minnesota Vikings,27,Detroit Lions,24,FT
+9,2025-11-02,Carolina Panthers,16,Green Bay Packers,13,FT
+9,2025-11-02,Los Angeles Chargers,27,Tennessee Titans,20,FT
+9,2025-11-02,Atlanta Falcons,23,New England Patriots,24,FT
+9,2025-11-02,San Francisco 49ers,34,New York Giants,24,FT
+9,2025-11-02,Indianapolis Colts,20,Pittsburgh Steelers,27,FT
+9,2025-11-02,Denver Broncos,18,Houston Texans,15,FT
+9,2025-11-02,Jacksonville Jaguars,30,Las Vegas Raiders,29,AOT
+9,2025-11-02,New Orleans Saints,10,Los Angeles Rams,34,FT
+9,2025-11-02,Kansas City Chiefs,21,Buffalo Bills,28,FT
+9,2025-11-03,Seattle Seahawks,38,Washington Commanders,14,FT
+9,2025-11-04,Arizona Cardinals,27,Dallas Cowboys,17,FT
+10,2025-11-07,Las Vegas Raiders,7,Denver Broncos,10,FT
+10,2025-11-09,Atlanta Falcons,25,Indianapolis Colts,31,AOT
+10,2025-11-09,New York Giants,20,Chicago Bears,24,FT
+10,2025-11-09,Buffalo Bills,13,Miami Dolphins,30,FT
+10,2025-11-09,Baltimore Ravens,27,Minnesota Vikings,19,FT
+10,2025-11-09,Cleveland Browns,20,New York Jets,27,FT
+10,2025-11-09,New England Patriots,28,Tampa Bay Buccaneers,23,FT
+10,2025-11-09,New Orleans Saints,17,Carolina Panthers,7,FT
+10,2025-11-09,Jacksonville Jaguars,29,Houston Texans,36,FT
+10,2025-11-09,Arizona Cardinals,22,Seattle Seahawks,44,FT
+10,2025-11-09,Los Angeles Rams,42,San Francisco 49ers,26,FT
+10,2025-11-09,Detroit Lions,44,Washington Commanders,22,FT
+10,2025-11-10,Pittsburgh Steelers,10,Los Angeles Chargers,25,FT
+10,2025-11-11,Philadelphia Eagles,10,Green Bay Packers,7,FT
+11,2025-11-14,New York Jets,14,New England Patriots,27,FT
+11,2025-11-16,Washington Commanders,13,Miami Dolphins,16,AOT
+11,2025-11-16,Carolina Panthers,30,Atlanta Falcons,27,AOT
+11,2025-11-16,Tampa Bay Buccaneers,32,Buffalo Bills,44,FT
+11,2025-11-16,Houston Texans,16,Tennessee Titans,13,FT
+11,2025-11-16,Chicago Bears,19,Minnesota Vikings,17,FT
+11,2025-11-16,Green Bay Packers,27,New York Giants,20,FT
+11,2025-11-16,Cincinnati Bengals,12,Pittsburgh Steelers,34,FT
+11,2025-11-16,Los Angeles Chargers,6,Jacksonville Jaguars,35,FT
+11,2025-11-16,Seattle Seahawks,19,Los Angeles Rams,21,FT
+11,2025-11-16,San Francisco 49ers,41,Arizona Cardinals,22,FT
+11,2025-11-16,Baltimore Ravens,23,Cleveland Browns,16,FT
+11,2025-11-16,Kansas City Chiefs,19,Denver Broncos,22,FT
+11,2025-11-17,Detroit Lions,9,Philadelphia Eagles,16,FT
+11,2025-11-18,Dallas Cowboys,33,Las Vegas Raiders,16,FT
+12,2025-11-21,Buffalo Bills,19,Houston Texans,23,FT
+12,2025-11-23,Pittsburgh Steelers,28,Chicago Bears,31,FT
+12,2025-11-23,New England Patriots,26,Cincinnati Bengals,20,FT
+12,2025-11-23,New York Giants,27,Detroit Lions,34,AOT
+12,2025-11-23,Minnesota Vikings,6,Green Bay Packers,23,FT
+12,2025-11-23,Seattle Seahawks,30,Tennessee Titans,24,FT
+12,2025-11-23,Indianapolis Colts,20,Kansas City Chiefs,23,AOT
+12,2025-11-23,New York Jets,10,Baltimore Ravens,23,FT
+12,2025-11-23,Cleveland Browns,24,Las Vegas Raiders,10,FT
+12,2025-11-23,Jacksonville Jaguars,27,Arizona Cardinals,24,AOT
+12,2025-11-23,Philadelphia Eagles,21,Dallas Cowboys,24,FT
+12,2025-11-23,Atlanta Falcons,24,New Orleans Saints,10,FT
+12,2025-11-24,Tampa Bay Buccaneers,7,Los Angeles Rams,34,FT
+12,2025-11-25,Carolina Panthers,9,San Francisco 49ers,20,FT
+13,2025-11-27,Green Bay Packers,31,Detroit Lions,24,FT
+13,2025-11-27,Kansas City Chiefs,28,Dallas Cowboys,31,FT
+13,2025-11-28,Cincinnati Bengals,32,Baltimore Ravens,14,FT
+13,2025-11-28,Chicago Bears,24,Philadelphia Eagles,15,FT
+13,2025-11-30,San Francisco 49ers,26,Cleveland Browns,8,FT
+13,2025-11-30,Jacksonville Jaguars,25,Tennessee Titans,3,FT
+13,2025-11-30,Houston Texans,20,Indianapolis Colts,16,FT
+13,2025-11-30,New Orleans Saints,17,Miami Dolphins,21,FT
+13,2025-11-30,Atlanta Falcons,24,New York Jets,27,FT
+13,2025-11-30,Arizona Cardinals,17,Tampa Bay Buccaneers,20,FT
+13,2025-11-30,Los Angeles Rams,28,Carolina Panthers,31,FT
+13,2025-11-30,Minnesota Vikings,0,Seattle Seahawks,26,FT
+13,2025-11-30,Buffalo Bills,26,Pittsburgh Steelers,7,FT
+13,2025-11-30,Las Vegas Raiders,14,Los Angeles Chargers,31,FT
+13,2025-12-01,Denver Broncos,27,Washington Commanders,26,AOT
+13,2025-12-02,New York Giants,15,New England Patriots,33,FT
+14,2025-12-05,Dallas Cowboys,30,Detroit Lions,44,FT
+14,2025-12-07,Seattle Seahawks,37,Atlanta Falcons,9,FT
+14,2025-12-07,Tennessee Titans,31,Cleveland Browns,29,FT
+14,2025-12-07,Chicago Bears,21,Green Bay Packers,28,FT
+14,2025-12-07,Washington Commanders,0,Minnesota Vikings,31,FT
+14,2025-12-07,Miami Dolphins,34,New York Jets,10,FT
+14,2025-12-07,New Orleans Saints,24,Tampa Bay Buccaneers,20,FT
+14,2025-12-07,Indianapolis Colts,19,Jacksonville Jaguars,36,FT
+14,2025-12-07,Pittsburgh Steelers,27,Baltimore Ravens,22,FT
+14,2025-12-07,Denver Broncos,24,Las Vegas Raiders,17,FT
+14,2025-12-07,Cincinnati Bengals,34,Buffalo Bills,39,FT
+14,2025-12-07,Los Angeles Rams,45,Arizona Cardinals,17,FT
+14,2025-12-08,Houston Texans,20,Kansas City Chiefs,10,FT
+14,2025-12-09,Philadelphia Eagles,19,Los Angeles Chargers,22,AOT
+15,2025-12-12,Atlanta Falcons,29,Tampa Bay Buccaneers,28,FT
+15,2025-12-14,Cleveland Browns,3,Chicago Bears,31,FT
+15,2025-12-14,Baltimore Ravens,24,Cincinnati Bengals,0,FT
+15,2025-12-14,Los Angeles Chargers,16,Kansas City Chiefs,13,FT
+15,2025-12-14,Buffalo Bills,35,New England Patriots,31,FT
+15,2025-12-14,Washington Commanders,29,New York Giants,21,FT
+15,2025-12-14,Las Vegas Raiders,0,Philadelphia Eagles,31,FT
+15,2025-12-14,New York Jets,20,Jacksonville Jaguars,48,FT
+15,2025-12-14,Arizona Cardinals,20,Houston Texans,40,FT
+15,2025-12-14,Green Bay Packers,26,Denver Broncos,34,FT
+15,2025-12-14,Detroit Lions,34,Los Angeles Rams,41,FT
+15,2025-12-14,Carolina Panthers,17,New Orleans Saints,20,FT
+15,2025-12-14,Tennessee Titans,24,San Francisco 49ers,37,FT
+15,2025-12-14,Indianapolis Colts,16,Seattle Seahawks,18,FT
+15,2025-12-15,Minnesota Vikings,34,Dallas Cowboys,26,FT
+15,2025-12-16,Miami Dolphins,15,Pittsburgh Steelers,28,FT
+16,2025-12-19,Los Angeles Rams,37,Seattle Seahawks,38,AOT
+16,2025-12-20,Philadelphia Eagles,29,Washington Commanders,18,FT
+16,2025-12-21,Green Bay Packers,16,Chicago Bears,22,AOT
+16,2025-12-21,Buffalo Bills,23,Cleveland Browns,20,FT
+16,2025-12-21,Los Angeles Chargers,34,Dallas Cowboys,17,FT
+16,2025-12-21,Kansas City Chiefs,9,Tennessee Titans,26,FT
+16,2025-12-21,New York Jets,6,New Orleans Saints,29,FT
+16,2025-12-21,Minnesota Vikings,16,New York Giants,13,FT
+16,2025-12-21,Tampa Bay Buccaneers,20,Carolina Panthers,23,FT
+16,2025-12-21,Jacksonville Jaguars,34,Denver Broncos,20,FT
+16,2025-12-21,Atlanta Falcons,26,Arizona Cardinals,19,FT
+16,2025-12-21,Pittsburgh Steelers,29,Detroit Lions,24,FT
+16,2025-12-21,Las Vegas Raiders,21,Houston Texans,23,FT
+16,2025-12-21,Cincinnati Bengals,45,Miami Dolphins,21,FT
+16,2025-12-22,New England Patriots,28,Baltimore Ravens,24,FT
+16,2025-12-23,San Francisco 49ers,48,Indianapolis Colts,27,FT
+17,2025-12-25,Dallas Cowboys,30,Washington Commanders,23,FT
+17,2025-12-25,Detroit Lions,10,Minnesota Vikings,23,FT
+17,2025-12-26,Denver Broncos,20,Kansas City Chiefs,13,FT
+17,2025-12-27,Houston Texans,20,Los Angeles Chargers,16,FT
+17,2025-12-28,Arizona Cardinals,14,Cincinnati Bengals,37,FT
+17,2025-12-28,Baltimore Ravens,41,Green Bay Packers,24,FT
+17,2025-12-28,New York Giants,34,Las Vegas Raiders,10,FT
+17,2025-12-28,Seattle Seahawks,27,Carolina Panthers,10,FT
+17,2025-12-28,Pittsburgh Steelers,6,Cleveland Browns,13,FT
+17,2025-12-28,New Orleans Saints,34,Tennessee Titans,26,FT
+17,2025-12-28,Jacksonville Jaguars,23,Indianapolis Colts,17,FT
+17,2025-12-28,Tampa Bay Buccaneers,17,Miami Dolphins,20,FT
+17,2025-12-28,New England Patriots,42,New York Jets,10,FT
+17,2025-12-28,Philadelphia Eagles,13,Buffalo Bills,12,FT
+17,2025-12-29,Chicago Bears,38,San Francisco 49ers,42,FT
+17,2025-12-30,Los Angeles Rams,24,Atlanta Falcons,27,FT
+18,2026-01-03,Carolina Panthers,14,Tampa Bay Buccaneers,16,FT
+18,2026-01-04,New Orleans Saints,17,Atlanta Falcons,19,FT
+18,2026-01-04,New York Jets,8,Buffalo Bills,35,FT
+18,2026-01-04,Detroit Lions,19,Chicago Bears,16,FT
+18,2026-01-04,Cleveland Browns,20,Cincinnati Bengals,18,FT
+18,2026-01-04,Los Angeles Chargers,3,Denver Broncos,19,FT
+18,2026-01-04,Kansas City Chiefs,12,Las Vegas Raiders,14,FT
+18,2026-01-04,Arizona Cardinals,20,Los Angeles Rams,37,FT
+18,2026-01-04,Green Bay Packers,3,Minnesota Vikings,16,FT
+18,2026-01-04,Miami Dolphins,10,New England Patriots,38,FT
+18,2026-01-04,Dallas Cowboys,17,New York Giants,34,FT
+18,2026-01-04,Washington Commanders,24,Philadelphia Eagles,17,FT
+18,2026-01-04,Seattle Seahawks,13,San Francisco 49ers,3,FT
+18,2026-01-04,Tennessee Titans,7,Jacksonville Jaguars,41,FT
+18,2026-01-04,Indianapolis Colts,30,Houston Texans,38,FT
+18,2026-01-05,Baltimore Ravens,24,Pittsburgh Steelers,26,FT`;
             const csvData2024 = `Week,Date,Away Team,Away Score,Home Team,Home Score,Status
 1,2024-09-06,Baltimore Ravens,20,Kansas City Chiefs,27,FT
 1,2024-09-07,Green Bay Packers,29,Philadelphia Eagles,34,FT
@@ -2026,6 +2237,11 @@
 18,2020-01-05,Tennessee Titans,20,New England Patriots,13,
 18,2020-01-05,Minnesota Vikings,26,New Orleans Saints,20,
 18,2020-01-05,Seattle Seahawks,17,Philadelphia Eagles,9,`;
+
+            const data2025 = parseCsvData(csvData2025);
+            seasonData['2025'].games = data2025.games;
+            seasonData['2025'].abbrMap = data2025.abbrToFullNameMap;
+            seasonData['2025'].logoMap = LOGO_MAP;
 
             const data2024 = parseCsvData(csvData2024);
             seasonData['2024'].games = data2024.games;
