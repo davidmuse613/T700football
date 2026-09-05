@@ -91,6 +91,63 @@
     loadSpreads();
   </script>
 </body>
+</html>  </style>
+</head>
+<body>
+  <h1>NFL Spreads (DraftKings)</h1>
+  <table id="spreadTable">
+    <thead>
+      <tr>
+        <th>Week</th>
+        <th>Matchup</th>
+        <th>Home Spread</th>
+        <th>Away Spread</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const apiUrl = "https://api.sportsgameodds.com/v2/events/?leagueID=NFL&bookmakerID=draftkings&finalized=true&ended=true&startsAfter=2026-09-01&startsBefore=2027-02-01&apiKey=cb952abc30dff15066120754a630f558";
+
+    async function loadSpreads() {
+      try {
+        const res = await fetch(apiUrl);
+        const data = await res.json();
+
+        const tbody = document.querySelector("#spreadTable tbody");
+        tbody.innerHTML = "";
+
+        if (data && data.data) {
+          data.data.forEach(event => {
+            const week = event.info?.seasonWeek || "N/A";
+            const homeTeam = event.teams?.home?.names?.long;
+            const awayTeam = event.teams?.away?.names?.long;
+
+            const homeSpread = event.odds?.["points-home-game-sp-home"]?.bookSpread || 
+                               event.odds?.["points-home-game-sp-home"]?.byBookmaker?.draftkings?.spread || "N/A";
+            const awaySpread = event.odds?.["points-away-game-sp-away"]?.bookSpread ||
+                               event.odds?.["points-away-game-sp-away"]?.byBookmaker?.draftkings?.spread || "N/A";
+
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${week}</td>
+              <td>${awayTeam} @ ${homeTeam}</td>
+              <td>${homeSpread}</td>
+              <td>${awaySpread}</td>
+            `;
+            tbody.appendChild(row);
+          });
+        }
+
+      } catch (err) {
+        console.error("Error loading spreads:", err);
+      }
+    }
+
+    loadSpreads();
+  </script>
+</body>
 </html>
 const TEAM_NAME_TO_ABBR_MAP = {
   'Atlanta Falcons': 'ATL',
