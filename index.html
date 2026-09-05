@@ -46,7 +46,7 @@
         <div class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
             <div class="flex justify-center items-center h-12">
                 <div class="flex items-center space-x-2 sm:space-x-3">
-                    <a onclick="showPage('2025')" class="nav-link">Live Season (2025)</a>
+                    <a onclick="showPage('2026')" class="nav-link">Live Season (2026)</a>
                     <a href="archive.html" class="nav-link">Seasons Archive</a>
                     <a href="tfa.html" class="nav-link">Turd Ferguson Award</a>
                     <a onclick="showPage('rules')" class="nav-link">Rules</a>
@@ -61,7 +61,7 @@
             <p id="page-subheading" class="text-lg text-gray-400 mt-2">Scores & Standings</p>
         </header>
 
-        <div id="page-2025" class="page-content"></div>
+        <div id="page-2026" class="page-content"></div>
         <div id="page-rules" class="page-content bg-gray-800 p-8 rounded-lg">
             <div class="rules-content text-gray-300">
                 <h3>Lunch General Rules</h3>
@@ -121,15 +121,27 @@
             'DAL': 'https://r2.thesportsdb.com/images/media/team/badge/wrxssu1450018209.png/tiny',
         };
         const seasonData = {
-            // --- **** FIX #1: Corrected "teamAbab" to "teamAbbr" for Russ **** ---
-            '2025': { isLive: true, owners: [ { name: "Greg", teamAbbr: "ATL" }, { name: "Ethan, Johnny, Bobby", teamAbbr: "CAR" }, { name: "Danger", teamAbbr: "CIN" }, { name: "Nick", teamAbbr: "DET" }, { name: "David, Bob", teamAbbr: "GNB" }, { name: "Russ", teamAbbr: "LVR" }, { name: "Stefan", teamAbbr: "LAC" }, { name: "Chuck", teamAbbr: "NWE" }, { name: "Pat", teamAbbr: "NYG" }, { name: "Kyle", teamAbbr: "PIT" } ]}
+            '2026': { 
+                isLive: true, 
+                owners: [ 
+                    { name: "Greg", teamAbbr: "ATL" }, 
+                    { name: "Ethan, Johnny, Bobby, Payton", teamAbbr: "CAR" }, 
+                    { name: "Danger", teamAbbr: "CIN" }, 
+                    { name: "Nick", teamAbbr: "DET" }, 
+                    { name: "David, Bob", teamAbbr: "GNB" }, 
+                    { name: "Russ", teamAbbr: "LVR" }, 
+                    { name: "Chuck", teamAbbr: "NWE" }, 
+                    { name: "Pat", teamAbbr: "NYG" }, 
+                    { name: "Kyle", teamAbbr: "PIT" } 
+                ]
+            }
         };
 
         // --- PAGE ROUTING LOGIC ---
         async function showPage(pageId) {
             document.querySelectorAll('.page-content').forEach(page => page.style.display = 'none');
             const pageElement = document.getElementById(`page-${pageId}`);
-            pageElement.style.display = 'block';
+            if (pageElement) pageElement.style.display = 'block';
             document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
             const activeLink = document.querySelector(`a[onclick="showPage('${pageId}')"]`);
             if(activeLink) activeLink.classList.add('active');
@@ -137,7 +149,7 @@
             const subheading = document.getElementById('page-subheading');
             subheading.textContent = (pageId === 'rules') ? 'League Rules & Information' : `${pageId} Scores & Standings`;
 
-            if (pageId !== 'rules' && pageElement.innerHTML.trim() === '') {
+            if (pageId !== 'rules' && pageElement && pageElement.innerHTML.trim() === '') {
                 await generateSeasonPage(pageId);
             }
         }
@@ -161,13 +173,13 @@
             const promises = [];
             for (let week = 1; week <= WEEKS; week++) {
                 const url = `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsround.php?id=${NFL_LEAGUE_ID}&r=${week}&s=${year}`;
-                promises.push(fetch(url).then(res => res.json()));
+                promises.push(fetch(url).then(res => res.json()).catch(err => ({ events: [] })));
             }
 
             const allResults = await Promise.all(promises);
             let allEvents = [];
             allResults.forEach(result => {
-                if (result.events) {
+                if (result && result.events) {
                     allEvents = allEvents.concat(result.events);
                 }
             });
@@ -190,7 +202,7 @@
                 };
                 renderTableAndCharts(year, liveData);
             } else {
-                contentContainer.innerHTML = `<div class="text-center text-red-400 p-8">Could not fetch live data for ${year}. The API may be unavailable or the season has not started.</div>`;
+                contentContainer.innerHTML = `<div class="text-center text-yellow-400 p-8">Schedule and scores for the ${year} season are not yet published or available from the sports database. They will appear here once the season begins.</div>`;
             }
         }
         
@@ -217,7 +229,7 @@
             
             const allGamesByWeek = new Map();
             for (let i = 1; i <= WEEKS; i++) allGamesByWeek.set(i, []);
-            games.forEach(game => {
+            (games || []).forEach(game => {
                 const weekGames = allGamesByWeek.get(game.week);
                 if (weekGames) weekGames.push(game);
             });
@@ -236,7 +248,7 @@
             
             const headerRow = document.createElement('tr');
             headerRow.innerHTML = `<th>Wk</th>` + owners.map(o => {
-                const teamFullName = abbrMap[o.teamAbbr] || ABBR_TO_TEAM_NAME_MAP[o.teamAbbr] || o.teamAbbr;
+                const teamFullName = (abbrMap && abbrMap[o.teamAbbr]) || ABBR_TO_TEAM_NAME_MAP[o.teamAbbr] || o.teamAbbr;
                 const logoUrl = logoMap ? logoMap[o.teamAbbr] : '';
                 const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="${o.teamAbbr}" class="mx-auto h-8 w-8 mb-1">` : '';
                 return `<th>${logoHtml}${o.name}<br><span class="font-normal text-gray-400 text-xs">${teamFullName}</span></th>`;
@@ -255,14 +267,13 @@
                 const isWeekCompleted = gamesThisWeek.some(g => g.home_score !== null);
 
                 owners.forEach((owner, ownerIndex) => {
-                    // This lookup will now work for Russ
                     const game = gamesThisWeek.find(g => g.home_team === owner.teamAbbr || g.away_team === owner.teamAbbr);
                     let pointDiffThisWeek = 0;
 
                     if (game) {
                         const isAway = game.away_team === owner.teamAbbr;
                         const opponentAbbr = isAway ? game.home_team : game.away_team;
-                        const opponentFullName = abbrMap[opponentAbbr] || ABBR_TO_TEAM_NAME_MAP[opponentAbbr] || opponentAbbr;
+                        const opponentFullName = (abbrMap && abbrMap[opponentAbbr]) || ABBR_TO_TEAM_NAME_MAP[opponentAbbr] || opponentAbbr;
 
                         if (game.home_score !== null && game.away_score !== null && !isNaN(game.home_score) && !isNaN(game.away_score)) {
                             const myTeamScore = isAway ? game.away_score : game.home_score;
@@ -271,8 +282,6 @@
                             sectionRecords[ownerIndex].diff += pointDiffThisWeek;
                             
                             let resultClass = 'tie';
-                            
-                            // --- **** FIX #2: Corrected Win/Loss Logic **** ---
                             if (pointDiffThisWeek > 0) {
                                 resultClass = 'win';
                                 sectionRecords[ownerIndex].w++;
@@ -282,7 +291,6 @@
                             } else {
                                 sectionRecords[ownerIndex].t++;
                             }
-                            // --- **** END OF FIX #2 **** ---
 
                             rowContentHTML += `<td class="${resultClass}"><div class="font-semibold">${myTeamScore} - ${opponentScore}</div><div class="text-xs text-gray-400">${isAway ? '@' : 'vs'} ${opponentFullName}</div></td>`;
                         } else {
@@ -306,7 +314,7 @@
                     const startWeek = (sectionIndex === 0) ? 1 : subtotalWeeks[sectionIndex - 1] + 1;
                     
                     let winnerIndex = -1;
-                    if (games.some(g => g.week >= startWeek && g.week <= week)) {
+                    if ((games || []).some(g => g.week >= startWeek && g.week <= week)) {
                         let maxWins = -1;
                         sectionRecords.forEach(r => { if (r.w > maxWins) maxWins = r.w; });
                         const potentialWinners = sectionRecords.map((r, i) => ({...r, index: i})).filter(r => r.w === maxWins && r.w > r.l);
@@ -408,7 +416,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            showPage('2025');
+            showPage('2026');
         });
     </script>
 </body>
