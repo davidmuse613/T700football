@@ -142,55 +142,62 @@
         }
 
         async function fetchAndRenderArchiveSeason(year) {
-            const API_KEY = '123';
-            const NFL_LEAGUE_ID = '4391';
-            const WEEKS = (year < 2021) ? 17 : 18;
-            const contentContainer = document.getElementById(`content-container-${year}`);
-            
-            const promises = [];
-            for (let week = 1; week <= WEEKS; week++) {
-                const url = `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsround.php?id=${NFL_LEAGUE_ID}&r=${week}&s=${year}`;
-                promises.push(fetch(url).then(res => res.json()).catch(err => ({ events: [] })));
-            }
+    const API_KEY = '123';
+    const NFL_LEAGUE_ID = '4391';
+    const WEEKS = (year < 2021) ? 17 : 18;
+    const contentContainer = document.getElementById(`content-container-${year}`);
+    
+    // Try both single year (e.g. 2025) and multi-year format (e.g. 2025-2026)
+    const seasonFormats = [year, `${year}-${parseInt(year) + 1}`];
+    let allEvents = [];
 
-            const allResults = await Promise.all(promises);
-            let allEvents = [];
-            allResults.forEach(result => {
-                if (result && result.events) {
-                    allEvents = allEvents.concat(result.events);
-                }
-            });
-
-            if (allEvents.length > 0) {
-                const abbrToFullNameMap = {};
-                allEvents.forEach(event => {
-                    const homeTeamAbbr = TEAM_NAME_TO_ABBR_MAP[event.strHomeTeam] || event.strHomeTeam;
-                    const awayTeamAbbr = TEAM_NAME_TO_ABBR_MAP[event.strAwayTeam] || event.strAwayTeam;
-                    if (homeTeamAbbr !== event.strHomeTeam) abbrToFullNameMap[homeTeamAbbr] = event.strHomeTeam;
-                    if (awayTeamAbbr !== event.strAwayTeam) abbrToFullNameMap[awayTeamAbbr] = event.strAwayTeam;
-                });
-
-                const processedGames = allEvents.map(event => {
-                    const homeTeamAbbr = TEAM_NAME_TO_ABBR_MAP[event.strHomeTeam] || event.strHomeTeam;
-                    const awayTeamAbbr = TEAM_NAME_TO_ABBR_MAP[event.strAwayTeam] || event.strAwayTeam;
-                    return {
-                        week: parseInt(event.intRound),
-                        date: event.dateEvent,
-                        time: event.strTime,
-                        home_team: homeTeamAbbr,
-                        home_score: event.intHomeScore !== null ? parseInt(event.intHomeScore) : null,
-                        away_team: awayTeamAbbr,
-                        away_score: event.intAwayScore !== null ? parseInt(event.intAwayScore) : null,
-                    };
-                });
-                seasonData[year].games = processedGames;
-                seasonData[year].abbrMap = abbrToFullNameMap;
-                seasonData[year].logoMap = LOGO_MAP;
-                renderTableAndCharts(year);
-            } else {
-                contentContainer.innerHTML = `<div class="text-center text-red-400 p-8">Could not fetch archived data for ${year}.</div>`;
-            }
+    for (const seasonStr of seasonFormats) {
+        const promises = [];
+        for (let week = 1; week <= WEEKS; week++) {
+            const url = `https://www.thesportsdb.com/api/v1/json/${API_KEY}/eventsround.php?id=${NFL_LEAGUE_ID}&r=${week}&s=${seasonStr}`;
+            promises.push(fetch(url).then(res => res.json()).catch(() => ({ events: [] })));
         }
+
+        const allResults = await Promise.all(promises);
+        allResults.forEach(result => {
+            if (result && result.events) {
+                allEvents = allEvents.concat(result.events);
+            }
+        });
+
+        if (allEvents.length > 0) break;
+    }
+
+    if (allEvents.length > 0) {
+        const abbrToFullNameMap = {};
+        allEvents.forEach(event => {
+            const homeTeamAbbr = TEAM_NAME_TO_ABBR_MAP[event.strHomeTeam] || event.strHomeTeam;
+            const awayTeamAbbr = TEAM_NAME_TO_ABBR_MAP[event.strAwayTeam] || event.strAwayTeam;
+            if (homeTeamAbbr !== event.strHomeTeam) abbrToFullNameMap[homeTeamAbbr] = event.strHomeTeam;
+            if (awayTeamAbbr !== event.strAwayTeam) abbrToFullNameMap[awayTeamAbbr] = event.strAwayTeam;
+        });
+
+        const processedGames = allEvents.map(event => {
+            const homeTeamAbbr = TEAM_NAME_TO_ABBR_MAP[event.strHomeTeam] || event.strHomeTeam;
+            const awayTeamAbbr = TEAM_NAME_TO_ABBR_MAP[event.strAwayTeam] || event.strAwayTeam;
+            return {
+                week: parseInt(event.intRound),
+                date: event.dateEvent,
+                time: event.strTime,
+                home_team: homeTeamAbbr,
+                home_score: event.intHomeScore !== null ? parseInt(event.intHomeScore) : null,
+                away_team: awayTeamAbbr,
+                away_score: event.intAwayScore !== null ? parseInt(event.intAwayScore) : null,
+            };
+        });
+        seasonData[year].games = processedGames;
+        seasonData[year].abbrMap = abbrToFullNameMap;
+        seasonData[year].logoMap = LOGO_MAP;
+        renderTableAndCharts(year);
+    } else {
+        contentContainer.innerHTML = `<div class="text-center text-red-400 p-8">Could not fetch archived data for ${year}.</div>`;
+    }
+}
 
         function renderTableAndCharts(year, overrideData = null) {
             const data = overrideData || seasonData[year];
