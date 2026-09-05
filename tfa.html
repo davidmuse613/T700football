@@ -1,40 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Turd Ferguson Award</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <title>NFL Spreads</title>
   <style>
-    body { background-color: #111827; color: #e5e7eb; font-family: sans-serif; }
-    .table-container { overflow-x: auto; margin: 1em; }
-    table { border-collapse: collapse; min-width: 1000px; width: 100%; }
-    th, td { border: 1px solid #374151; padding: 8px; text-align: center; }
-    th { background-color: #1f2937; color: #d1d5db; position: sticky; top: 0; }
-    tr:nth-child(even) { background-color: #1f2937; }
-    .tfa-winner { background-color: #a16207; color: #fef08a; }
-    .tfa-loser { background-color: #166534; color: #a7f3d0; }
-    .error { color: #f87171; padding: 1em; text-align: center; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #222;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      max-width: 900px;
+      margin: 20px auto;
+      background: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    th, td {
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background-color: #222;
+      color: white;
+      cursor: pointer;
+    }
+    tr:hover {
+      background-color: #f1f1f1;
+    }
   </style>
 </head>
 <body>
-  <nav class="bg-gray-800 p-4">
-    <a href="index.html" class="mr-4">Scores</a>
-    <a href="#" class="font-bold">Turd Ferguson Award</a>
-  </nav>
-  <header class="text-center mt-6">
-    <h1 class="text-3xl font-bold">💩 Turd Ferguson Award</h1>
-  </header>
-  <div id="tfa-container" class="table-container">
-    <div class="error">Loading data...</div>
-  </div>
+  <h1>NFL Spreads (DraftKings)</h1>
+  <table id="spreadTable">
+    <thead>
+      <tr>
+        <th>Week</th>
+        <th>Matchup</th>
+        <th>Home Spread</th>
+        <th>Away Spread</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
-<script>
-const SPREADS_API_KEY = 'cb952abc30dff15066120754a630f558';
-const SCORES_API_KEY = '123';
-const NFL_LEAGUE_ID = '4391';
-const YEAR = '2025';
+  <script>
+    const apiUrl = "https://api.sportsgameodds.com/v2/events/?leagueID=NFL&bookmakerID=draftkings&finalized=true&ended=true&startsAfter=2026-09-01&startsBefore=2027-02-01&apiKey=cb952abc30dff15066120754a630f558";
 
+    async function loadSpreads() {
+      try {
+        const res = await fetch(apiUrl);
+        const data = await res.json();
+
+        const tbody = document.querySelector("#spreadTable tbody");
+        tbody.innerHTML = "";
+
+        if (data && data.data) {
+          data.data.forEach(event => {
+            const week = event.info?.seasonWeek || "N/A";
+            const homeTeam = event.teams?.home?.names?.long;
+            const awayTeam = event.teams?.away?.names?.long;
+
+            const homeSpread = event.odds?.["points-home-game-sp-home"]?.bookSpread || 
+                               event.odds?.["points-home-game-sp-home"]?.byBookmaker?.draftkings?.spread || "N/A";
+            const awaySpread = event.odds?.["points-away-game-sp-away"]?.bookSpread ||
+                               event.odds?.["points-away-game-sp-away"]?.byBookmaker?.draftkings?.spread || "N/A";
+
+            const row = document.createElement("tr");
+            row.innerHTML = `
+              <td>${week}</td>
+              <td>${awayTeam} @ ${homeTeam}</td>
+              <td>${homeSpread}</td>
+              <td>${awaySpread}</td>
+            `;
+            tbody.appendChild(row);
+          });
+        }
+
+      } catch (err) {
+        console.error("Error loading spreads:", err);
+      }
+    }
+
+    loadSpreads();
+  </script>
+</body>
+</html>
 const TEAM_NAME_TO_ABBR_MAP = {
   'Atlanta Falcons': 'ATL',
   'Carolina Panthers': 'CAR',
