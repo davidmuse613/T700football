@@ -145,11 +145,11 @@
 
     <script>
         // --- TEAM COLOR CONFIGURATION ---
-        const teamLineColors = { 'ATL': '#A5ACAF', 'CAR': '#0085CA', 'CIN': '#FB4F14', 'DET': '#0076B6', 'GNB': '#203731', 'LAC': '#FFC20E', 'LVR': '#A5ACAF', 'NWE': '#002244', 'NYG': '#A71930', 'PIT': '#101820', 'SDG': '#FFC20E', 'RAI': '#A5ACAF', 'TAM': '#D50A0A', 'SEA': '#002244', 'DAL': '#869397' };
-        const teamMarkerColors = { 'ATL': '#A71930', 'CAR': '#101820', 'CIN': '#000000', 'DET': '#B0B7BC', 'GNB': '#FFB612', 'LAC': '#0080C6', 'LVR': '#000000', 'NWE': '#C60C30', 'NYG': '#0B2265', 'PIT': '#FFB612', 'SDG': '#0080C6', 'RAI': '#000000', 'TAM': '#FF7900', 'SEA': '#69BE28', 'DAL': '#003594' };
+        const teamLineColors = { 'CHI': '#0B162A', 'ATL': '#A5ACAF', 'CAR': '#0085CA', 'CIN': '#FB4F14', 'DET': '#0076B6', 'GNB': '#203731', 'LAC': '#FFC20E', 'LVR': '#A5ACAF', 'NWE': '#002244', 'NYG': '#A71930', 'PIT': '#101820', 'SDG': '#FFC20E', 'RAI': '#A5ACAF', 'TAM': '#D50A0A', 'SEA': '#002244', 'DAL': '#869397' };
+        const teamMarkerColors = { 'CHI': '#C83803', 'ATL': '#A71930', 'CAR': '#101820', 'CIN': '#000000', 'DET': '#B0B7BC', 'GNB': '#FFB612', 'LAC': '#0080C6', 'LVR': '#000000', 'NWE': '#C60C30', 'NYG': '#0B2265', 'PIT': '#FFB612', 'SDG': '#0080C6', 'RAI': '#000000', 'TAM': '#FF7900', 'SEA': '#69BE28', 'DAL': '#003594' };
         
         // --- DATA CONFIGURATION ---
-        const TEAM_NAME_TO_ABBR_MAP = { 'Atlanta Falcons': 'ATL', 'Carolina Panthers': 'CAR', 'Cincinnati Bengals': 'CIN', 'Detroit Lions': 'DET', 'Green Bay Packers': 'GNB', 'Los Angeles Chargers': 'LAC', 'Las Vegas Raiders': 'LVR', 'New England Patriots': 'NWE', 'New York Giants': 'NYG', 'Pittsburgh Steelers': 'PIT', 'Tampa Bay Buccaneers': 'TAM', 'Seattle Seahawks': 'SEA', 'Dallas Cowboys': 'DAL', 'Washington Redskins': 'WAS', 'Washington Commanders': 'WAS', 'Oakland Raiders': 'LVR', 'San Diego Chargers': 'LAC', 'St. Louis Rams': 'LAR', 'Washington': 'WAS' };
+        const TEAM_NAME_TO_ABBR_MAP = { 'Chicago Bears': 'CHI', 'Atlanta Falcons': 'ATL', 'Carolina Panthers': 'CAR', 'Cincinnati Bengals': 'CIN', 'Detroit Lions': 'DET', 'Green Bay Packers': 'GNB', 'Los Angeles Chargers': 'LAC', 'Las Vegas Raiders': 'LVR', 'New England Patriots': 'NWE', 'New York Giants': 'NYG', 'Pittsburgh Steelers': 'PIT', 'Tampa Bay Buccaneers': 'TAM', 'Seattle Seahawks': 'SEA', 'Dallas Cowboys': 'DAL', 'Washington Redskins': 'WAS', 'Washington Commanders': 'WAS', 'Oakland Raiders': 'LVR', 'San Diego Chargers': 'LAC', 'St. Louis Rams': 'LAR', 'Washington': 'WAS' };
         const ABBR_TO_TEAM_NAME_MAP = Object.fromEntries(Object.entries(TEAM_NAME_TO_ABBR_MAP).map(([k, v]) => [v, k]));
         const LOGO_MAP = {
             'ATL': 'https://r2.thesportsdb.com/images/media/team/badge/rrpvpr1420658174.png/tiny',
@@ -171,14 +171,15 @@
                 isLive: true, 
                 owners: [ 
                     { name: "Greg", teamAbbr: "ATL" }, 
-                    { name: "Ethan, Johnny, Bobby, Payton", teamAbbr: "CAR" }, 
+                    { name: "Ethan, Johnny, Bobby", teamAbbr: "CAR" }, 
                     { name: "Danger", teamAbbr: "CIN" }, 
                     { name: "Nick", teamAbbr: "DET" }, 
                     { name: "David, Bob", teamAbbr: "GNB" }, 
                     { name: "Russ", teamAbbr: "LVR" }, 
                     { name: "Chuck", teamAbbr: "NWE" }, 
                     { name: "Pat", teamAbbr: "NYG" }, 
-                    { name: "Kyle", teamAbbr: "PIT" } 
+                    { name: "Kyle", teamAbbr: "PIT" },
+                    { name: "Payton", teamAbbr: "CHI" } 
                 ]
             }
         };

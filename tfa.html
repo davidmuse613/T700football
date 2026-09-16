@@ -21,6 +21,19 @@
         nav a { padding: 6px 12px; font-size: 0.875rem; border-radius: 6px; transition: background-color 0.2s; cursor: pointer; }
         nav a.active { background-color: #3b82f6; color: white; font-weight: 500; }
         nav a:not(.active):hover { background-color: #374151; }
+        .book-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background-color: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            margin-right: 6px;
+            margin-bottom: 4px;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body class="bg-gray-900">
@@ -39,26 +52,26 @@
         </div>
     </nav>
 
-    <div class="max-w-5xl mx-auto p-4 sm:p-6 md:p-8">
+    <div class="max-w-7xl mx-auto p-4 sm:p-6 md:p-8">
         <header class="text-center mb-8">
             <h1 class="text-3xl sm:text-4xl font-bold text-white">💩 Turd Ferguson Award 💩</h1>
-            <p class="text-lg text-gray-400 mt-2">NFL Spreads (DraftKings)</p>
+            <p class="text-lg text-gray-400 mt-2">NFL Spreads & Final Scores (All Sportsbooks)</p>
         </header>
 
-        <!-- Current Season Spreads Table -->
+        <!-- Current Season Spreads & Scores Table -->
         <div class="table-container rounded-lg shadow-lg bg-[#151c2c] border border-gray-700 mb-12">
             <table id="spreadTable" class="w-full text-sm">
                 <thead>
                     <tr>
-                        <th class="w-16 text-center">Week</th>
-                        <th>Matchup</th>
-                        <th class="w-36 text-center">Home Spread</th>
-                        <th class="w-36 text-center">Away Spread</th>
+                        <th class="w-16 text-center">Wk</th>
+                        <th class="w-72">Matchup</th>
+                        <th class="w-36 text-center">Final Score</th>
+                        <th>Multi-Sportsbook Spreads (Home / Away)</th>
                     </tr>
                 </thead>
                 <tbody id="spreadBody">
                     <tr>
-                        <td colspan="4" class="text-center text-gray-400 py-6">Loading 2026 NFL spreads...</td>
+                        <td colspan="4" class="text-center text-gray-400 py-6">Loading 2026 NFL spreads and scores for pool teams...</td>
                     </tr>
                 </tbody>
             </table>
@@ -87,7 +100,7 @@
                             <th>Flag Penalty Obligation / Notes</th>
                         </tr>
                     </thead>
-                                        <tbody class="text-gray-300 divide-y divide-gray-700">
+                    <tbody class="text-gray-300 divide-y divide-gray-700">
                         <tr>
                             <td class="text-center font-bold text-gray-400">2025</td>
                             <td class="font-medium text-white">Stefan</td>
@@ -140,58 +153,228 @@
     </div>
 
     <script>
-        const apiUrl = "https://api.sportsgameodds.com/v2/events/?leagueID=NFL&bookmakerID=draftkings&finalized=true&ended=true&startsAfter=2026-09-01&startsBefore=2027-02-01&apiKey=cb952abc30dff15066120754a630f558";
+        // Current 2026 Season Participants & Teams in the Pool
+        const POOL_TEAMS = {
+            'ATL': { name: 'Atlanta Falcons', owner: 'Greg' },
+            'CAR': { name: 'Carolina Panthers', owner: 'Ethan, Johnny, Bobby' },
+            'CIN': { name: 'Cincinnati Bengals', owner: 'Danger' },
+            'DET': { name: 'Detroit Lions', owner: 'Nick' },
+            'GNB': { name: 'Green Bay Packers', owner: 'David, Bob' },
+            'LVR': { name: 'Las Vegas Raiders', owner: 'Russ' },
+            'NWE': { name: 'New England Patriots', owner: 'Chuck' },
+            'NYG': { name: 'New York Giants', owner: 'Pat' },
+            'PIT': { name: 'Pittsburgh Steelers', owner: 'Kyle' },
+            'CHI': { name: 'Chicago Bears', owner: 'Payton' }
+        };
 
-        async function loadSpreads() {
+        const TEAM_NAME_TO_ABBR = {
+            'Atlanta Falcons': 'ATL', 'Carolina Panthers': 'CAR', 'Cincinnati Bengals': 'CIN',
+            'Detroit Lions': 'DET', 'Green Bay Packers': 'GNB', 'Las Vegas Raiders': 'LVR',
+            'New England Patriots': 'NWE', 'New York Giants': 'NYG', 'Pittsburgh Steelers': 'PIT',
+            'Chicago Bears': 'CHI', 'Oakland Raiders': 'LVR'
+        };
+
+        // Friendly display names for sportsbooks
+        const BOOKMAKER_DISPLAY_NAMES = {
+            'draftkings': 'DraftKings',
+            'fanduel': 'FanDuel',
+            'betmgm': 'BetMGM',
+            'bet365': 'Bet365',
+            'caesars': 'Caesars',
+            'espnbet': 'ESPN BET',
+            'fanatics': 'Fanatics',
+            'pointsbet': 'PointsBet',
+            'bovada': 'Bovada',
+            'betrivers': 'BetRivers',
+            'circa': 'Circa',
+            'pinnacle': 'Pinnacle'
+        };
+
+        // API Endpoint querying all sportsbooks for the 2026 season
+        const oddsApiUrl = "https://api.sportsgameodds.com/v2/events/?leagueID=NFL&startsAfter=2026-09-01&startsBefore=2027-02-01&apiKey=cb952abc30dff15066120754a630f558";
+
+        async function loadSpreadsAndScores() {
             const tbody = document.getElementById("spreadBody");
             try {
-                const res = await fetch(apiUrl);
-                const data = await res.json();
+                // 1. Fetch live odds across all sportsbooks
+                const oddsRes = await fetch(oddsApiUrl);
+                const oddsData = await oddsRes.json();
+
+                // 2. Fetch TheSportsDB 2026 scores to cross-reference final scores
+                const sportsDbScores = new Map(); // key: "week_team1_team2" -> { homeScore, awayScore }
+                try {
+                    const sportsDbUrl = "https://www.thesportsdb.com/api/v1/json/123/eventsround.php?id=4391&s=2026";
+                    // Pull weeks 1 through 18
+                    const weekFetches = [];
+                    for (let w = 1; w <= 18; w++) {
+                        weekFetches.push(
+                            fetch(`https://www.thesportsdb.com/api/v1/json/123/eventsround.php?id=4391&r=${w}&s=2026`)
+                                .then(r => r.json())
+                                .catch(() => ({ events: [] }))
+                        );
+                    }
+                    const weekResults = await Promise.all(weekFetches);
+                    weekResults.forEach(res => {
+                        if (res && res.events) {
+                            res.events.forEach(ev => {
+                                if (ev.intHomeScore !== null && ev.intAwayScore !== null) {
+                                    const key = `${ev.intRound}_${ev.strAwayTeam}_${ev.strHomeTeam}`.toLowerCase();
+                                    sportsDbScores.set(key, {
+                                        homeScore: parseInt(ev.intHomeScore),
+                                        awayScore: parseInt(ev.intAwayScore)
+                                    });
+                                }
+                            });
+                        }
+                    });
+                } catch (e) {
+                    console.warn("TheSportsDB score sync bypassed:", e);
+                }
 
                 tbody.innerHTML = "";
 
-                if (data && data.data && data.data.length > 0) {
-                    data.data.forEach(event => {
-                        const week = event.info?.seasonWeek || "N/A";
+                if (oddsData && oddsData.data && oddsData.data.length > 0) {
+                    let matchingGamesCount = 0;
+
+                    // Sort events by week ascending
+                    const sortedEvents = [...oddsData.data].sort((a, b) => {
+                        const wkA = parseInt(a.info?.seasonWeek) || 99;
+                        const wkB = parseInt(b.info?.seasonWeek) || 99;
+                        return wkA - wkB;
+                    });
+
+                    sortedEvents.forEach(event => {
+                        const week = event.info?.seasonWeek || "—";
                         const homeTeam = event.teams?.home?.names?.long || "Home";
                         const awayTeam = event.teams?.away?.names?.long || "Away";
 
-                        const homeSpread = event.odds?.["points-home-game-sp-home"]?.bookSpread || 
-                                           event.odds?.["points-home-game-sp-home"]?.byBookmaker?.draftkings?.spread || "—";
-                        const awaySpread = event.odds?.["points-away-game-sp-away"]?.bookSpread || 
-                                           event.odds?.["points-away-game-sp-away"]?.byBookmaker?.draftkings?.spread || "—";
+                        const homeAbbr = TEAM_NAME_TO_ABBR[homeTeam] || "";
+                        const awayAbbr = TEAM_NAME_TO_ABBR[awayTeam] || "";
+
+                        // Filter: Only show games involving current season pool teams
+                        const homeInPool = POOL_TEAMS[homeAbbr];
+                        const awayInPool = POOL_TEAMS[awayAbbr];
+
+                        if (!homeInPool && !awayInPool) {
+                            return; // Skip non-pool games
+                        }
+
+                        matchingGamesCount++;
+
+                        // Determine Final Score
+                        let homeScore = event.teams?.home?.score ?? event.odds?.["points-home-game-sp-home"]?.score ?? null;
+                        let awayScore = event.teams?.away?.score ?? event.odds?.["points-away-game-sp-away"]?.score ?? null;
+
+                        // Fallback to TheSportsDB score if available
+                        if (homeScore === null || awayScore === null) {
+                            const dbKey = `${week}_${awayTeam}_${homeTeam}`.toLowerCase();
+                            const dbMatch = sportsDbScores.get(dbKey);
+                            if (dbMatch) {
+                                homeScore = dbMatch.homeScore;
+                                awayScore = dbMatch.awayScore;
+                            }
+                        }
+
+                        const isGameFinal = (homeScore !== null && awayScore !== null && !isNaN(homeScore) && !isNaN(awayScore));
+
+                        // Extract spreads from all available sportsbooks
+                        const homeBooks = event.odds?.["points-home-game-sp-home"]?.byBookmaker || {};
+                        const awayBooks = event.odds?.["points-away-game-sp-away"]?.byBookmaker || {};
+
+                        // Consolidated list of all bookmakers present
+                        const bookKeys = Array.from(new Set([...Object.keys(homeBooks), ...Object.keys(awayBooks)]));
+
+                        let spreadsBadgesHtml = "";
+                        if (bookKeys.length > 0) {
+                            bookKeys.forEach(bookKey => {
+                                const bookName = BOOKMAKER_DISPLAY_NAMES[bookKey] || bookKey.charAt(0).toUpperCase() + bookKey.slice(1);
+                                const hSpread = homeBooks[bookKey]?.spread !== undefined ? (homeBooks[bookKey].spread > 0 ? `+${homeBooks[bookKey].spread}` : homeBooks[bookKey].spread) : "—";
+                                const aSpread = awayBooks[bookKey]?.spread !== undefined ? (awayBooks[bookKey].spread > 0 ? `+${awayBooks[bookKey].spread}` : awayBooks[bookKey].spread) : "—";
+
+                                spreadsBadgesHtml += `
+                                    <div class="book-badge">
+                                        <span class="font-bold text-yellow-400">${bookName}:</span>
+                                        <span class="text-gray-300 font-mono">H: ${hSpread} | A: ${aSpread}</span>
+                                    </div>
+                                `;
+                            });
+                        } else {
+                            // Single consensus or fallback spread if bookmaker breakdown is unset
+                            const consensusHome = event.odds?.["points-home-game-sp-home"]?.bookSpread || "—";
+                            const consensusAway = event.odds?.["points-away-game-sp-away"]?.bookSpread || "—";
+                            spreadsBadgesHtml = `
+                                <div class="book-badge">
+                                    <span class="font-bold text-gray-400">Consensus:</span>
+                                    <span class="text-gray-300 font-mono">H: ${consensusHome} | A: ${consensusAway}</span>
+                                </div>
+                            `;
+                        }
+
+                        // Format Matchup column with pool member tags
+                        const awayTag = awayInPool ? `<span class="text-blue-300 font-semibold">${awayTeam} <span class="text-xs text-gray-400">(${awayInPool.owner})</span></span>` : `<span class="text-gray-300">${awayTeam}</span>`;
+                        const homeTag = homeInPool ? `<span class="text-blue-300 font-semibold">${homeTeam} <span class="text-xs text-gray-400">(${homeInPool.owner})</span></span>` : `<span class="text-gray-300">${homeTeam}</span>`;
+
+                        // Format Final Score in the same style as index.html
+                        let scoreHtml = "";
+                        if (isGameFinal) {
+                            scoreHtml = `
+                                <div class="font-semibold text-white text-base">${awayScore} - ${homeScore}</div>
+                                <div class="text-xs text-gray-400">Final (FT)</div>
+                            `;
+                        } else {
+                            scoreHtml = `<div class="text-xs text-gray-500 italic">Upcoming</div>`;
+                        }
 
                         const row = document.createElement("tr");
                         row.innerHTML = `
-                            <td class="text-center font-semibold text-gray-300">${week}</td>
-                            <td class="font-medium text-gray-200">${awayTeam} <span class="text-gray-400 font-normal">@</span> ${homeTeam}</td>
-                            <td class="text-center font-mono text-gray-300">${homeSpread}</td>
-                            <td class="text-center font-mono text-gray-300">${awaySpread}</td>
+                            <td class="text-center font-bold text-gray-300">${week}</td>
+                            <td>
+                                <div>${awayTag}</div>
+                                <div class="text-xs text-gray-400 font-normal">@ ${homeTag}</div>
+                            </td>
+                            <td class="text-center font-mono">
+                                ${scoreHtml}
+                            </td>
+                            <td>
+                                <div class="flex flex-wrap items-center">
+                                    ${spreadsBadgesHtml}
+                                </div>
+                            </td>
                         `;
                         tbody.appendChild(row);
                     });
+
+                    if (matchingGamesCount === 0) {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="4" class="text-center text-gray-400 py-6">
+                                    No current season games found for the pool teams yet. As games and odds are posted for the 2026 season, they will appear here automatically.
+                                </td>
+                            </tr>
+                        `;
+                    }
                 } else {
                     tbody.innerHTML = `
                         <tr>
                             <td colspan="4" class="text-center text-gray-400 py-6">
-                                No finalized 2026 regular season games recorded yet. Once games conclude each week, DraftKings closing spreads and matchups will populate here automatically.
+                                No 2026 odds or scores recorded yet. Matchups, final scores, and sportsbook spreads will populate automatically once games begin.
                             </td>
                         </tr>
                     `;
                 }
             } catch (err) {
-                console.error("Error loading spreads:", err);
+                console.error("Error loading spreads and scores:", err);
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="4" class="text-center text-red-400 py-6">
-                            Unable to fetch live spreads at this time. Please check back after kickoff.
+                            Unable to fetch live spreads and scores at this time. Please check back shortly.
                         </td>
                     </tr>
                 `;
             }
         }
 
-        loadSpreads();
+        loadSpreadsAndScores();
     </script>
 </body>
 </html>
