@@ -172,7 +172,7 @@
     </div>
 
     <script>
-        // STRICT POOL TEAMS CONFIGURATION: Only the 10 participants and their teams
+        // STRICT POOL TEAMS CONFIGURATION: Exactly the 10 participants and their teams
         const POOL_TEAMS = [
             {
                 abbr: 'ATL',
@@ -254,7 +254,7 @@
                 if (teamObj.names) {
                     candidates.push(teamObj.names.long, teamObj.names.medium, teamObj.names.short);
                 }
-                candidates.push(teamObj.name, teamObj.abbreviation, teamObj.teamID);
+                candidates.push(teamObj.name, teamObj.abbreviation, teamObj.teamID, teamObj.strTeam);
             } else if (typeof teamObj === 'string') {
                 candidates.push(teamObj);
             }
@@ -282,7 +282,7 @@
         // Clean display name for opponent
         function getOpponentDisplayName(teamObj) {
             if (!teamObj) return "Opponent";
-            return teamObj?.names?.long || teamObj?.name || (typeof teamObj === 'string' ? teamObj : "Opponent");
+            return teamObj?.names?.long || teamObj?.name || teamObj?.strTeam || (typeof teamObj === 'string' ? teamObj : "Opponent");
         }
 
         function getOpponentShortName(teamObj) {
@@ -363,180 +363,196 @@
         async function loadSpreadsAndScores() {
             const container = document.getElementById("weeklyAccordionContainer");
             try {
-                // 1. Fetch live odds from SportsGameOdds with fallback to ensure data is always retrieved
-                let allEvents = [];
-                const oddsEndpoints = [
-                    "https://api.sportsgameodds.com/v2/events/?leagueID=NFL&bookmakerID=draftkings,fanduel,betmgm,bet365,caesars&startsAfter=2026-09-01&startsBefore=2027-02-01&apiKey=cb952abc30dff15066120754a630f558",
-                    "https://api.sportsgameodds.com/v2/events/?leagueID=NFL&bookmakerID=draftkings&startsAfter=2026-09-01&startsBefore=2027-02-01&apiKey=cb952abc30dff15066120754a630f558",
-                    "https://api.sportsgameodds.com/v2/events/?leagueID=NFL&startsAfter=2026-09-01&startsBefore=2027-02-01&apiKey=cb952abc30dff15066120754a630f558"
-                ];
-
-                for (const url of oddsEndpoints) {
-                    try {
-                        const res = await fetch(url);
-                        const json = await res.json();
-                        if (json && json.data && json.data.length > 0) {
-                            allEvents = json.data;
-                            break; // Successfully got events
-                        }
-                    } catch (fetchErr) {
-                        console.warn("Endpoint attempt bypassed:", url, fetchErr);
-                    }
-                }
-
-                // 2. Fetch TheSportsDB 2026 scores for score synchronization & fallback
-                const sportsDbScores = new Map();
+                // 1. Fetch Complete 2026 NFL Schedule from TheSportsDB (Weeks 1 to 18)
+                // This guarantees every pool participant's game is present, including David, Bob & Pat!
+                const theSportsDbWeekEvents = new Map(); // weekNum -> Array of events
                 try {
                     const weekFetches = [];
                     for (let w = 1; w <= 18; w++) {
                         weekFetches.push(
                             fetch(`https://www.thesportsdb.com/api/v1/json/123/eventsround.php?id=4391&r=${w}&s=2026`)
                                 .then(r => r.json())
-                                .catch(() => ({ events: [] }))
+                                .then(data => ({ week: w, events: data?.events || [] }))
+                                .catch(() => ({ week: w, events: [] }))
                         );
                     }
                     const weekResults = await Promise.all(weekFetches);
                     weekResults.forEach(res => {
-                        if (res && res.events) {
-                            res.events.forEach(ev => {
-                                if (ev.intHomeScore !== null && ev.intAwayScore !== null) {
-                                    const key = `${ev.intRound}_${ev.strAwayTeam}_${ev.strHomeTeam}`.toLowerCase();
-                                    sportsDbScores.set(key, {
-                                        homeScore: parseInt(ev.intHomeScore),
-                                        awayScore: parseInt(ev.intAwayScore)
-                                    });
+                        theSportsDbWeekEvents.set(res.week, res.events);
+                    });
+                } catch (dbErr) {
+                    console.warn("TheSportsDB schedule fetch notice:", dbErr);
+                }
+
+                // 2. Fetch SportsGameOdds across all requested sportsbooks in parallel:
+                // (DraftKings, FanDuel, BetMGM, Bet365, Caesars)
+                // Fetching individually ensures the API does not restrict the response payload,
+                // and paginates with cursor to cover all weeks.
+                const desiredBooks = ['draftkings', 'fanduel', 'betmgm', 'bet365', 'caesars'];
+                const oddsByMatchupKey = new Map(); // "week_awayTeam_homeTeam" -> { homeBooks: {}, awayBooks: {}, consensusHome, consensusAway }
+
+                const bookPromises = desiredBooks.map(async (bookId) => {
+                    let cursor = null;
+                    for (let page = 0; page < 3; page++) {
+                        try {
+                            let url = `https://api.sportsgameodds.com/v2/events/?leagueID=NFL&bookmakerID=${bookId}&startsAfter=2026-09-01&startsBefore=2027-02-01&apiKey=cb952abc30dff15066120754a630f558`;
+                            if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+
+                            const res = await fetch(url);
+                            const json = await res.json();
+                            if (json && json.data && json.data.length > 0) {
+                                json.data.forEach(ev => {
+                                    const wk = parseWeekNum(ev.info?.seasonWeek);
+                                    const awayName = getOpponentDisplayName(ev.teams?.away).toLowerCase();
+                                    const homeName = getOpponentDisplayName(ev.teams?.home).toLowerCase();
+                                    const key = `${wk}_${awayName}_${homeName}`;
+
+                                    if (!oddsByMatchupKey.has(key)) {
+                                        oddsByMatchupKey.set(key, {
+                                            homeBooks: {},
+                                            awayBooks: {},
+                                            consensusHome: ev.odds?.["points-home-game-sp-home"]?.bookSpread,
+                                            consensusAway: ev.odds?.["points-away-game-sp-away"]?.bookSpread
+                                        });
+                                    }
+
+                                    const entry = oddsByMatchupKey.get(key);
+                                    const hBook = ev.odds?.["points-home-game-sp-home"]?.byBookmaker?.[bookId];
+                                    const aBook = ev.odds?.["points-away-game-sp-away"]?.byBookmaker?.[bookId];
+
+                                    if (hBook) entry.homeBooks[bookId] = hBook;
+                                    if (aBook) entry.awayBooks[bookId] = aBook;
+                                });
+
+                                if (json.nextCursor) {
+                                    cursor = json.nextCursor;
+                                } else {
+                                    break;
                                 }
+                            } else {
+                                break;
+                            }
+                        } catch (e) {
+                            break;
+                        }
+                    }
+                });
+
+                await Promise.all(bookPromises);
+
+                // Helper to find odds for any game
+                function findOdds(week, awayName, homeName) {
+                    const cleanA = awayName.toLowerCase();
+                    const cleanH = homeName.toLowerCase();
+
+                    // Direct key match
+                    const directKey = `${week}_${cleanA}_${cleanH}`;
+                    if (oddsByMatchupKey.has(directKey)) return oddsByMatchupKey.get(directKey);
+
+                    // Fuzzy match across keys in the same week
+                    for (const [k, val] of oddsByMatchupKey.entries()) {
+                        if (k.startsWith(`${week}_`)) {
+                            // Check if team nicknames or words match
+                            const parts = k.split('_');
+                            const kAway = parts[1];
+                            const kHome = parts[2];
+                            if ((cleanA.includes(kAway) || kAway.includes(cleanA.split(' ').pop())) &&
+                                (cleanH.includes(kHome) || kHome.includes(cleanH.split(' ').pop()))) {
+                                return val;
+                            }
+                        }
+                    }
+                    return null;
+                }
+
+                // 3. Build Unified Matchups per Week from TheSportsDB
+                const weeksMap = new Map(); // weekNum -> Array of participant entries
+
+                for (let w = 1; w <= 18; w++) {
+                    const events = theSportsDbWeekEvents.get(w) || [];
+                    if (!weeksMap.has(w)) weeksMap.set(w, []);
+
+                    events.forEach(ev => {
+                        const homeTeamName = ev.strHomeTeam;
+                        const awayTeamName = ev.strAwayTeam;
+
+                        const homePoolMatch = resolvePoolTeam(homeTeamName);
+                        const awayPoolMatch = resolvePoolTeam(awayTeamName);
+
+                        // Only process games featuring at least one pool participant
+                        if (!homePoolMatch && !awayPoolMatch) return;
+
+                        const homeScore = (ev.intHomeScore !== null && ev.intHomeScore !== undefined && ev.intHomeScore !== "") ? parseInt(ev.intHomeScore) : null;
+                        const awayScore = (ev.intAwayScore !== null && ev.intAwayScore !== undefined && ev.intAwayScore !== "") ? parseInt(ev.intAwayScore) : null;
+                        const isFinal = (homeScore !== null && awayScore !== null && !isNaN(homeScore) && !isNaN(awayScore));
+
+                        const odds = findOdds(w, awayTeamName, homeTeamName);
+                        const homeBooks = odds ? odds.homeBooks : {};
+                        const awayBooks = odds ? odds.awayBooks : {};
+                        const consensusHome = odds ? odds.consensusHome : undefined;
+                        const consensusAway = odds ? odds.consensusAway : undefined;
+                        const allBookKeys = Array.from(new Set([...Object.keys(homeBooks), ...Object.keys(awayBooks)]));
+
+                        const homeShort = homePoolMatch ? homePoolMatch.nickname : homeTeamName.split(' ').pop();
+                        const awayShort = awayPoolMatch ? awayPoolMatch.nickname : awayTeamName.split(' ').pop();
+
+                        // Away Participant perspective
+                        if (awayPoolMatch) {
+                            const partScore = isFinal ? awayScore : null;
+                            const oppScore = isFinal ? homeScore : null;
+                            const scoreDelta = isFinal ? (partScore - oppScore) : null;
+
+                            weeksMap.get(w).push({
+                                participant: awayPoolMatch,
+                                isHome: false,
+                                opponentName: homeTeamName,
+                                opponentShort: homeShort,
+                                opponentPoolMatch: homePoolMatch,
+                                partScore,
+                                oppScore,
+                                scoreDelta,
+                                isFinal,
+                                homeBooks,
+                                awayBooks,
+                                allBookKeys,
+                                consensusHome,
+                                consensusAway
+                            });
+                        }
+
+                        // Home Participant perspective
+                        // (If two participants play each other, both blocks execute, generating flipped rows!)
+                        if (homePoolMatch) {
+                            const partScore = isFinal ? homeScore : null;
+                            const oppScore = isFinal ? awayScore : null;
+                            const scoreDelta = isFinal ? (partScore - oppScore) : null;
+
+                            weeksMap.get(w).push({
+                                participant: homePoolMatch,
+                                isHome: true,
+                                opponentName: awayTeamName,
+                                opponentShort: awayShort,
+                                opponentPoolMatch: awayPoolMatch,
+                                partScore,
+                                oppScore,
+                                scoreDelta,
+                                isFinal,
+                                homeBooks,
+                                awayBooks,
+                                allBookKeys,
+                                consensusHome,
+                                consensusAway
                             });
                         }
                     });
-                } catch (e) {
-                    console.warn("TheSportsDB score sync bypassed:", e);
                 }
-
-                // 3. Process events and generate entries from the TFA Participant's perspective
-                const weeksMap = new Map(); // weekNumber -> Array of participant entries
-
-                // Deduplicate events
-                const seenEvents = new Set();
-                const uniqueEvents = [];
-                allEvents.forEach(ev => {
-                    const id = ev.eventID || `${ev.info?.seasonWeek}_${ev.teams?.away?.name}_${ev.teams?.home?.name}`;
-                    if (!seenEvents.has(id)) {
-                        seenEvents.add(id);
-                        uniqueEvents.push(ev);
-                    }
-                });
-
-                uniqueEvents.forEach(ev => {
-                    // Safely extract week number without dropping "Week 1"
-                    const weekNum = parseWeekNum(ev.info?.seasonWeek);
-
-                    const homeObj = ev.teams?.home;
-                    const awayObj = ev.teams?.away;
-
-                    const homePoolMatch = resolvePoolTeam(homeObj);
-                    const awayPoolMatch = resolvePoolTeam(awayObj);
-
-                    // Skip if neither team is in the 10-person pool
-                    if (!homePoolMatch && !awayPoolMatch) return;
-
-                    const homeLong = getOpponentDisplayName(homeObj);
-                    const awayLong = getOpponentDisplayName(awayObj);
-                    const homeShort = getOpponentShortName(homeObj);
-                    const awayShort = getOpponentShortName(awayObj);
-
-                    // Determine scores (from SportsGameOdds or TheSportsDB)
-                    let homeScore = ev.teams?.home?.score ?? ev.odds?.["points-home-game-sp-home"]?.score ?? null;
-                    let awayScore = ev.teams?.away?.score ?? ev.odds?.["points-away-game-sp-away"]?.score ?? null;
-
-                    if (homeScore === null || awayScore === null) {
-                        const dbKey = `${weekNum}_${awayLong}_${homeLong}`.toLowerCase();
-                        const dbMatch = sportsDbScores.get(dbKey);
-                        if (dbMatch) {
-                            homeScore = dbMatch.homeScore;
-                            awayScore = dbMatch.awayScore;
-                        }
-                    }
-
-                    const isFinal = (homeScore !== null && awayScore !== null && !isNaN(homeScore) && !isNaN(awayScore));
-
-                    // Bookmaker spreads
-                    const homeBooks = ev.odds?.["points-home-game-sp-home"]?.byBookmaker || {};
-                    const awayBooks = ev.odds?.["points-away-game-sp-away"]?.byBookmaker || {};
-                    const allBookKeys = Array.from(new Set([...Object.keys(homeBooks), ...Object.keys(awayBooks)]));
-
-                    // Consensus spread
-                    let consensusHome = ev.odds?.["points-home-game-sp-home"]?.bookSpread;
-                    let consensusAway = ev.odds?.["points-away-game-sp-away"]?.bookSpread;
-                    if (consensusHome !== undefined && consensusAway === undefined) consensusAway = -parseFloat(consensusHome);
-                    else if (consensusAway !== undefined && consensusHome === undefined) consensusHome = -parseFloat(consensusAway);
-
-                    if (!weeksMap.has(weekNum)) {
-                        weeksMap.set(weekNum, []);
-                    }
-
-                    // GENERATE ROW(S):
-                    // If Away team is in the pool -> generate row from Away Participant's perspective
-                    if (awayPoolMatch) {
-                        const partScore = isFinal ? awayScore : null;
-                        const oppScore = isFinal ? homeScore : null;
-                        let scoreDelta = null;
-                        if (isFinal) {
-                            scoreDelta = partScore - oppScore; // Opponent taken away from Participant
-                        }
-
-                        weeksMap.get(weekNum).push({
-                            participant: awayPoolMatch,
-                            isHome: false,
-                            opponentName: homeLong,
-                            opponentShort: homeShort,
-                            opponentPoolMatch: homePoolMatch,
-                            partScore,
-                            oppScore,
-                            scoreDelta,
-                            isFinal,
-                            homeBooks,
-                            awayBooks,
-                            allBookKeys,
-                            consensusHome,
-                            consensusAway
-                        });
-                    }
-
-                    // If Home team is in the pool -> generate row from Home Participant's perspective
-                    // (If two participants play each other, both blocks run, creating two flipped rows!)
-                    if (homePoolMatch) {
-                        const partScore = isFinal ? homeScore : null;
-                        const oppScore = isFinal ? awayScore : null;
-                        let scoreDelta = null;
-                        if (isFinal) {
-                            scoreDelta = partScore - oppScore; // Opponent taken away from Participant
-                        }
-
-                        weeksMap.get(weekNum).push({
-                            participant: homePoolMatch,
-                            isHome: true,
-                            opponentName: awayLong,
-                            opponentShort: awayShort,
-                            opponentPoolMatch: awayPoolMatch,
-                            partScore,
-                            oppScore,
-                            scoreDelta,
-                            isFinal,
-                            homeBooks,
-                            awayBooks,
-                            allBookKeys,
-                            consensusHome,
-                            consensusAway
-                        });
-                    }
-                });
 
                 container.innerHTML = "";
 
-                const sortedWeeks = Array.from(weeksMap.keys()).sort((a, b) => a - b);
+                // Filter to weeks that have games
+                const activeWeeks = Array.from(weeksMap.keys()).filter(w => weeksMap.get(w).length > 0).sort((a, b) => a - b);
 
-                if (sortedWeeks.length === 0) {
+                if (activeWeeks.length === 0) {
                     container.innerHTML = `
                         <div class="text-center text-gray-400 py-10 bg-[#151c2c] rounded-lg border border-gray-700">
                             No games currently available for the 10 pool teams. Check network connection or API status.
@@ -545,7 +561,7 @@
                     return;
                 }
 
-                sortedWeeks.forEach(weekNum => {
+                activeWeeks.forEach(weekNum => {
                     const entries = weeksMap.get(weekNum);
                     const savedWinner = getSavedWinner(weekNum);
 
@@ -588,7 +604,7 @@
                             deltaDisplay = `<span class="text-gray-500 font-mono">—</span>`;
                         }
 
-                        // Sportsbook spreads formatted with participant spread highlighted
+                        // Sportsbook spreads formatted across DraftKings, FanDuel, BetMGM, Bet365, Caesars
                         let spreadsBadgesHtml = "";
                         if (entry.allBookKeys.length > 0) {
                             entry.allBookKeys.forEach(bookKey => {
@@ -615,7 +631,7 @@
                                     </div>
                                 `;
                             });
-                        } else {
+                        } else if (entry.consensusHome !== undefined || entry.consensusAway !== undefined) {
                             // Consensus fallback
                             const partRaw = entry.isHome ? entry.consensusHome : entry.consensusAway;
                             const oppRaw = entry.isHome ? entry.consensusAway : entry.consensusHome;
@@ -631,6 +647,8 @@
                                     <span class="text-gray-400 font-mono">${entry.opponentShort} ${oStr}</span>
                                 </div>
                             `;
+                        } else {
+                            spreadsBadgesHtml = `<span class="text-xs text-gray-500 italic">Spreads pending</span>`;
                         }
 
                         rowsHtml += `
