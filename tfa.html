@@ -24,7 +24,7 @@
         .book-badge {
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 5px;
             padding: 3px 8px;
             background-color: #1e293b;
             border: 1px solid #475569;
@@ -52,7 +52,7 @@
 </head>
 <body class="bg-gray-900">
 
-    <!-- Top Navigation Bar -->
+    <!-- Top Navigation Bar matching main site -->
     <nav class="w-full bg-gray-800 shadow-md">
         <div class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
             <div class="flex justify-center items-center h-12">
@@ -172,7 +172,7 @@
     </div>
 
     <script>
-        // STRICT POOL TEAMS CONFIGURATION: Exactly the 10 participants and their teams
+        // STRICT POOL TEAMS CONFIGURATION: Only the 10 participants and their teams
         const POOL_TEAMS = [
             {
                 abbr: 'ATL',
@@ -249,26 +249,28 @@
         // Strict team resolver that never matches non-pool teams by partial substring
         function resolvePoolTeam(teamObj) {
             if (!teamObj) return null;
-            const candidates = [
-                teamObj.names?.long,
-                teamObj.name,
-                teamObj.names?.medium,
-                teamObj.names?.short,
-                teamObj.abbreviation,
-                teamObj.teamID,
-                typeof teamObj === 'string' ? teamObj : ''
-            ].filter(Boolean).map(s => String(s).toLowerCase().trim());
+            const candidates = [];
+            if (typeof teamObj === 'object') {
+                if (teamObj.names) {
+                    candidates.push(teamObj.names.long, teamObj.names.medium, teamObj.names.short);
+                }
+                candidates.push(teamObj.name, teamObj.abbreviation, teamObj.teamID);
+            } else if (typeof teamObj === 'string') {
+                candidates.push(teamObj);
+            }
+
+            const cleanCands = candidates.filter(Boolean).map(s => String(s).toLowerCase().trim());
 
             for (const poolTeam of POOL_TEAMS) {
-                for (const cand of candidates) {
-                    // Check exact match in accepted aliases
+                for (const cand of cleanCands) {
+                    // Exact match in accepted list
                     if (poolTeam.accepted.includes(cand)) {
                         return poolTeam;
                     }
-                    // Word boundary match for nickname
+                    // Word boundary match on nickname
                     const words = cand.replace(/[-_]/g, ' ').split(/\s+/);
                     if (words.includes(poolTeam.nickname.toLowerCase())) {
-                        // Prevent NY Jets from matching NY Giants
+                        // Avoid matching NY Jets as NY Giants
                         if (poolTeam.abbr === 'NYG' && words.includes('jets')) continue;
                         return poolTeam;
                     }
@@ -277,15 +279,22 @@
             return null;
         }
 
-        // Clean display name for any opponent team
+        // Clean display name for opponent
         function getOpponentDisplayName(teamObj) {
             if (!teamObj) return "Opponent";
-            return teamObj.names?.long || teamObj.name || (typeof teamObj === 'string' ? teamObj : "Opponent");
+            return teamObj?.names?.long || teamObj?.name || (typeof teamObj === 'string' ? teamObj : "Opponent");
         }
 
         function getOpponentShortName(teamObj) {
             if (!teamObj) return "OPP";
-            return teamObj.names?.medium || teamObj.names?.short || teamObj.abbreviation || getOpponentDisplayName(teamObj).split(' ').pop();
+            return teamObj?.names?.medium || teamObj?.names?.short || teamObj?.abbreviation || getOpponentDisplayName(teamObj).split(' ').pop();
+        }
+
+        // Extracts week number safely from strings like "Week 1", "r01", "1", or default to 1
+        function parseWeekNum(seasonWeekStr) {
+            if (!seasonWeekStr) return 1;
+            const m = String(seasonWeekStr).match(/\d+/);
+            return m ? parseInt(m[0], 10) : 1;
         }
 
         // Formats spread numbers without duplicate plus signs
@@ -354,28 +363,28 @@
         async function loadSpreadsAndScores() {
             const container = document.getElementById("weeklyAccordionContainer");
             try {
-                // 1. Fetch live odds with pagination
+                // 1. Fetch live odds from SportsGameOdds with fallback to ensure data is always retrieved
                 let allEvents = [];
-                let cursor = null;
-                for (let p = 0; p < 3; p++) {
-                    let url = "https://api.sportsgameodds.com/v2/events/?leagueID=NFL&startsAfter=2026-09-01&startsBefore=2027-02-01&limit=100&apiKey=cb952abc30dff15066120754a630f558";
-                    if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+                const oddsEndpoints = [
+                    "https://api.sportsgameodds.com/v2/events/?leagueID=NFL&bookmakerID=draftkings,fanduel,betmgm,bet365,caesars&startsAfter=2026-09-01&startsBefore=2027-02-01&apiKey=cb952abc30dff15066120754a630f558",
+                    "https://api.sportsgameodds.com/v2/events/?leagueID=NFL&bookmakerID=draftkings&startsAfter=2026-09-01&startsBefore=2027-02-01&apiKey=cb952abc30dff15066120754a630f558",
+                    "https://api.sportsgameodds.com/v2/events/?leagueID=NFL&startsAfter=2026-09-01&startsBefore=2027-02-01&apiKey=cb952abc30dff15066120754a630f558"
+                ];
 
-                    const res = await fetch(url);
-                    const json = await res.json();
-                    if (json && json.data && json.data.length > 0) {
-                        allEvents = allEvents.concat(json.data);
-                        if (json.nextCursor) {
-                            cursor = json.nextCursor;
-                        } else {
-                            break;
+                for (const url of oddsEndpoints) {
+                    try {
+                        const res = await fetch(url);
+                        const json = await res.json();
+                        if (json && json.data && json.data.length > 0) {
+                            allEvents = json.data;
+                            break; // Successfully got events
                         }
-                    } else {
-                        break;
+                    } catch (fetchErr) {
+                        console.warn("Endpoint attempt bypassed:", url, fetchErr);
                     }
                 }
 
-                // 2. Fetch TheSportsDB 2026 scores for score synchronization
+                // 2. Fetch TheSportsDB 2026 scores for score synchronization & fallback
                 const sportsDbScores = new Map();
                 try {
                     const weekFetches = [];
@@ -419,8 +428,8 @@
                 });
 
                 uniqueEvents.forEach(ev => {
-                    const weekNum = parseInt(ev.info?.seasonWeek) || null;
-                    if (!weekNum) return;
+                    // Safely extract week number without dropping "Week 1"
+                    const weekNum = parseWeekNum(ev.info?.seasonWeek);
 
                     const homeObj = ev.teams?.home;
                     const awayObj = ev.teams?.away;
@@ -436,7 +445,7 @@
                     const homeShort = getOpponentShortName(homeObj);
                     const awayShort = getOpponentShortName(awayObj);
 
-                    // Determine scores
+                    // Determine scores (from SportsGameOdds or TheSportsDB)
                     let homeScore = ev.teams?.home?.score ?? ev.odds?.["points-home-game-sp-home"]?.score ?? null;
                     let awayScore = ev.teams?.away?.score ?? ev.odds?.["points-away-game-sp-away"]?.score ?? null;
 
@@ -495,7 +504,7 @@
                     }
 
                     // If Home team is in the pool -> generate row from Home Participant's perspective
-                    // (If two participants play each other, both if-blocks execute, generating two flipped rows!)
+                    // (If two participants play each other, both blocks run, creating two flipped rows!)
                     if (homePoolMatch) {
                         const partScore = isFinal ? homeScore : null;
                         const oppScore = isFinal ? awayScore : null;
@@ -530,7 +539,7 @@
                 if (sortedWeeks.length === 0) {
                     container.innerHTML = `
                         <div class="text-center text-gray-400 py-10 bg-[#151c2c] rounded-lg border border-gray-700">
-                            No current season games recorded for the 10 pool teams yet. As games and odds are posted for the 2026 season, they will appear here automatically.
+                            No games currently available for the 10 pool teams. Check network connection or API status.
                         </div>
                     `;
                     return;
@@ -658,7 +667,7 @@
                                 <span id="accordion-chevron-${weekNum}" class="chevron text-gray-400 text-base font-bold">▼</span>
                                 <h3 class="text-lg font-bold text-white flex items-center gap-2">
                                     <span>🏈 Week ${weekNum}</span>
-                                    <span class="text-xs bg-gray-700 text-gray-300 font-normal px-2 py-0.5 rounded-full border border-gray-600">${entries.length} Pool Games</span>
+                                    <span class="text-xs bg-gray-700 text-gray-300 font-normal px-2 py-0.5 rounded-full border border-gray-600">${entries.length} Pool Matchups</span>
                                 </h3>
                             </div>
 
